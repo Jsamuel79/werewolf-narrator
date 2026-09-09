@@ -118,3 +118,26 @@ flutter config --no-analytics
 dart --disable-analytics
 ```
 
+### ⚠️ Problème n°2 — `A Timer is still pending` dans les tests de widgets
+
+Les écrans lisent la base via des `StreamProvider` alimentés par les `watch()` de Drift.
+Quand Riverpod détruit le `ProviderScope` en fin de test, Drift annule la souscription et
+planifie un `Timer.run(...)` (`StreamQueryStore.markAsClosed`). Le framework de test
+détruisait l'arbre *après* le corps du test et échouait aussitôt sur l'invariant
+« A Timer is still pending even after the widget tree was disposed », puis le process
+`flutter test` restait bloqué (timeout de plusieurs minutes).
+
+**Résolution** — chaque test de widget démonte l'arbre *à l'intérieur* du corps du test,
+puis laisse le timer se déclencher :
+
+```dart
+Future<void> disposeTree(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pumpAndSettle();   // pump() seul n'écoule pas le timer à durée nulle
+}
+```
+
+À noter : `await tester.pump()` ne suffit pas — `pump(Duration.zero)` n'avance pas
+l'horloge simulée, donc le timer à durée nulle n'est jamais exécuté. `pumpAndSettle()`
+avance par pas de 100 ms et le déclenche.
+

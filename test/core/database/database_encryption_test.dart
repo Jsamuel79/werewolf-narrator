@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
@@ -29,7 +28,7 @@ void main() {
     // The community SQLCipher build exposes `PRAGMA cipher_version`; the plain
     // SQLite build returns nothing for it.
     final db = sqlite3.openInMemory();
-    addTearDown(db.dispose);
+    addTearDown(db.close);
     final rows = db.select('PRAGMA cipher_version;');
     expect(
       rows,
@@ -41,10 +40,15 @@ void main() {
   test('the database file is encrypted at rest', () async {
     final file = File(p.join(tempDir.path, 'encrypted.db'));
     final db = AppDatabase(encryptedExecutor(file, key));
-    await db.customStatement(
-      "INSERT INTO games (id, name, created_at, updated_at, status, "
-      "is_archived) VALUES ('g1', 'CONFIDENTIAL_MARKER', 0, 0, 'setup', 0)",
-    );
+    await db.into(db.games).insert(
+          GamesCompanion.insert(
+            id: 'g1',
+            name: 'CONFIDENTIAL_MARKER',
+            createdAt: DateTime(2026, 1, 1),
+            updatedAt: DateTime(2026, 1, 1),
+            status: 'setup',
+          ),
+        );
     await db.close();
 
     final bytes = await file.readAsBytes();
