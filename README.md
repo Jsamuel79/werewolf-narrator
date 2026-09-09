@@ -2,7 +2,7 @@
 
 Application Flutter **offline-first** pour aider le narrateur de Loup-Garou à suivre les rôles, actions de nuit, couples, et historique des parties.
 
-## ✨ Fonctionnalité·µ
+## ✨ Fonctionnalité
 
 - ✅ **100% offline** — fonctionne sans Wi-Fi
 - ✅ **Chiffrement SQLCipher** (AES-256) — données sécur localement
@@ -10,7 +10,7 @@ Application Flutter **offline-first** pour aider le narrateur de Loup-Garou à s
 - ✅ **Suivi des rôles** — note qui a quel rôle
 - ✅ **Actions de nuit** — enregistre chaque action (tue, sauve, visite, couple, etc.)
 - ✅ **Historique complet** — consulte toutes les nuits d'une partie
-- ✅ **Export JSON chiffré·µ** — sauvegarde et partage tes parties
+- ✅ **Export JSON chiffré** — sauvegarde et partage tes parties
 
 ## 🛠️ Stack technique
 
@@ -27,15 +27,15 @@ Application Flutter **offline-first** pour aider le narrateur de Loup-Garou à s
 
 ```
 lib/
-├── main.dart                 # Point d'entré·¢, setup SQLCipher
+├── main.dart                 # Point d'entré, setup SQLCipher
 ├── database/
 │   ├── database.dart         # Configuration Drift + SQLCipher
 │   ├── schema.dart           # Sché·µ de la base (tables)
-│   └── migrations.dart       # Migrations de sché·µ
-├── models/                   # Modè·¢ Dart (Player, Night, Action, Couple)
+│   └── migrations.dart       # Migrations de schéma
+├── models/                   # Modèle Dart (Player, Night, Action, Couple)
 ├── services/
 │   ├── security_service.dart # Gestion des clés de chiffrement
-│   └── export_service.dart   # Export JSON chiffré·µ
+│   └── export_service.dart   # Export JSON chiffré
 ├── screens/                  # Écrans de l'app
 │   ├── home_screen.dart      # Liste des parties
 │   ├── game_screen.dart      # Détail d'une partie
@@ -61,7 +61,7 @@ cd werewolf-narrator
 # Installer les dépendances
 flutter pub get
 
-# Lancer l'app (dé·¢tecte l' appareil/é·µulateur)
+# Lancer l'app (détecte l' appareil/émulateur)
 flutter run
 ```
 
@@ -78,9 +78,9 @@ L'APK sera génré·¢ dans `build/app/outputs/flutter-apk/app-release.apk`.
 - **Base de données chiffré·¢** avec SQLCipher (AES-256)
 - **Clé·µ stocké·¢** dans le Keychain (iOS) / EncryptedSharedPreferences (Android)
 - **Aucune donnée envoyé** au réseau (100% local)
-- **Export optionnel** en JSON chiffré·µ (mot de passe)
+- **Export optionnel** en JSON chiffré (mot de passe)
 
-## 📊 Sché·µ de la base de données
+## 📊 Schéma de la base de données
 
 ### Tables principales
 
@@ -121,7 +121,7 @@ L'APK sera génré·¢ dans `build/app/outputs/flutter-apk/app-release.apk`.
 @DriftDatabase(tables: [...])
 class AppDatabase extends _$AppDatabase {
   @override
-  int get schemaVersion => 2; // Incré·¢menter à chaque migration
+  int get schemaVersion => 2; // Incrémenter à chaque migration
 
   @override
   MigrationStrategy get migration {
@@ -155,4 +155,4 @@ Les PR sont les bienvenues ! Ouvre une issue pour discuter des features avant de
 
 ---
 
-**Dé·¢veloppé·µ avec ❤️ par Jsamuel79**
+**Développé par Jsamuel79**
