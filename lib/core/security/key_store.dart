@@ -21,8 +21,15 @@ abstract interface class DatabaseKeyStore {
 /// [DatabaseKeyStore] backed by Android Keystore / iOS Keychain.
 class SecureStorageKeyStore implements DatabaseKeyStore {
   SecureStorageKeyStore({FlutterSecureStorage? storage, Random? random})
-    : _storage = storage ?? const FlutterSecureStorage(),
+    : _storage = storage ?? const FlutterSecureStorage(iOptions: _iosOptions),
       _random = random ?? Random.secure();
+
+  /// The database key must never leave the device, so it is excluded from
+  /// iCloud Keychain sync and is only readable after the first unlock.
+  static const IOSOptions _iosOptions = IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock_this_device,
+    synchronizable: false,
+  );
 
   /// Versioned so a future key-rotation scheme can coexist with this one.
   static const String storageKeyName = 'wn_database_key_v1';

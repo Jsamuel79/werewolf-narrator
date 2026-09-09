@@ -18,8 +18,10 @@ dependencies:
   drift: ^2.35.0
   sqlite3: ^3.5.2
 
-  # Encryption key storage (Keystore / Keychain)
-  flutter_secure_storage: ^11.0.0
+  # Encryption key storage (Keystore / Keychain).
+  # Pinned below 11.x: that release compiles against Android SDK 37, which the
+  # Android Gradle Plugin shipped by Flutter 3.47 does not support.
+  flutter_secure_storage: ^10.3.2
 
   # Encrypted export / import
   encrypt: ^5.0.3

@@ -31,7 +31,7 @@ AES-256 (SQLCipher)**.
 ### Prérequis
 
 - **Flutter 3.47** ou plus récent ([guide d'installation](https://docs.flutter.dev/get-started/install))
-- Pour Android : un SDK Android avec la plateforme **android-35** et Java 17+
+- Pour Android : un SDK Android avec la plateforme **android-36** et Java 17+
 - Un appareil ou un émulateur Android / iOS
 
 ### Installation
@@ -68,7 +68,13 @@ flutter test      # 129 tests
 flutter build apk --release
 ```
 
-L'APK est produit dans `build/app/outputs/flutter-apk/app-release.apk`.
+L'APK est produit dans `build/app/outputs/flutter-apk/app-release.apk` (~72 Mo :
+il contient les trois ABI et les binaires SQLCipher). Pour des APK plus légers,
+d'environ 24 Mo chacun :
+
+```bash
+flutter build apk --release --split-per-abi
+```
 
 > ⚠️ Le build de release utilise pour l'instant la **clé de signature de debug**
 > (configuration par défaut de `flutter create`). Pour publier sur le Play Store,

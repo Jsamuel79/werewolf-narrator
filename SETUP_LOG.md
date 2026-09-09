@@ -202,3 +202,66 @@ l'explique désormais explicitement, et
 2. que les manifestes debug/profile la contiennent bien (séparation intacte) ;
 3. qu'aucun fichier de `lib/` n'ouvre de socket ni de client HTTP.
 
+---
+
+## Build de l'APK de release
+
+### ⚠️ Problème n°6 — `Failed to find target with hash string 'android-37'`
+
+Premier `flutter build apk --release` : Gradle installe tout seul les plateformes
+Android 36 puis « 37.0 », puis échoue :
+
+```
+Could not determine the dependencies of task
+':flutter_secure_storage:compileReleaseJavaWithJavac'.
+> Failed to find target with hash string 'android-37' in: ~/Android/Sdk
+```
+
+**Cause** — `flutter_secure_storage` **11.0.0** compile contre le SDK Android 37.
+Deux problèmes se cumulent :
+
+1. Le SDK manager installe cette plateforme sous le nom `android-37.0`, alors que
+   Gradle la cherche sous `android-37`.
+2. L'Android Gradle Plugin fourni par le template Flutter 3.47 est le **9.1.0**,
+   dont le message d'erreur indique lui-même que « la version maximale
+   recommandée de compile SDK est 36 ».
+
+**Tentative intermédiaire (abandonnée)** — forcer `compileSdk = 36` sur tous les
+sous-projets Android depuis `android/build.gradle.kts`. La compilation passait,
+mais la vérification des métadonnées AAR échouait ensuite :
+`Dependency ':flutter_secure_storage' requires ... version 37 or later`.
+Cette rustine a été retirée : elle masquait le problème au lieu de le résoudre,
+et aurait produit des erreurs incompréhensibles pour toute future dépendance
+réclamant légitimement un SDK plus récent.
+
+**Résolution retenue** — épingler `flutter_secure_storage: ^10.3.2`, dernière
+version compilant contre le SDK 36, avec un commentaire dans `pubspec.yaml`
+expliquant pourquoi. L'API utilisée par l'application est identique.
+
+Bénéfice annexe : en 10.3.2, le constructeur `AndroidOptions()` par défaut
+utilise déjà AES-GCM avec enveloppement de clé RSA-OAEP dans le KeyStore
+(`encryptedSharedPreferences` y est déprécié). Les options iOS ont été précisées
+au passage : `first_unlock_this_device` + `synchronizable: false`, pour que la
+clé de la base ne parte jamais dans le trousseau iCloud.
+
+### ✅ Résultat
+
+```
+✓ Built build/app/outputs/flutter-apk/app-release.apk (71.8MB)
+```
+
+Vérifications faites sur l'APK produit avec `aapt2` et `unzip` :
+
+| Vérification | Résultat |
+|---|---|
+| Permissions déclarées | `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` uniquement — **pas d'`INTERNET`** |
+| `libsqlcipher.so` embarqué | ✅ pour `arm64-v8a`, `armeabi-v7a` et `x86_64` |
+| Taille | 71,8 Mo — c'est un APK « gras » contenant les 3 ABI |
+
+L'APK est signé avec la **clé de debug** (configuration par défaut de
+`flutter create`). C'est suffisant pour installer l'application sur son propre
+téléphone, mais il faudra un keystore dédié pour une publication.
+
+> 💡 `flutter build apk --split-per-abi` produit trois APK d'environ 24 Mo au
+> lieu d'un seul de 72 Mo, si la taille compte.
+
