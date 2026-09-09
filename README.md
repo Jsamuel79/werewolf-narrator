@@ -1,157 +1,154 @@
 # 🐺 Werewolf Narrator
 
-Application Flutter **offline-first** pour aider le narrateur de Loup-Garou à suivre les rôles, actions de nuit, couples, et historique des parties.
+Application Flutter **100 % hors ligne** pour aider le narrateur d'une partie de
+**Loup-Garou** à ne rien oublier : qui a quel rôle, qui a tué qui, qui protège
+qui, qui est amoureux de qui, ce que la Voyante a vu, et le déroulé complet de
+chaque nuit.
 
-## ✨ Fonctionnalité
+Toutes les données restent sur le téléphone, dans une base **SQLite chiffrée en
+AES-256 (SQLCipher)**.
 
-- ✅ **100% offline** — fonctionne sans Wi-Fi
-- ✅ **Chiffrement SQLCipher** (AES-256) — données sécur localement
-- ✅ **Gestion des parties** — crée, archive, exporte tes parties
-- ✅ **Suivi des rôles** — note qui a quel rôle
-- ✅ **Actions de nuit** — enregistre chaque action (tue, sauve, visite, couple, etc.)
-- ✅ **Historique complet** — consulte toutes les nuits d'une partie
-- ✅ **Export JSON chiffré** — sauvegarde et partage tes parties
+---
 
-## 🛠️ Stack technique
+## ✨ Ce que fait l'application
 
-| Composant | Technologie |
-|-----------|-------------|
-| Framework | Flutter 3.x |
-| Langage | Dart |
-| Base de données | Drift (SQLite) |
-| Chiffrement | SQLCipher (AES-256) |
-| Gestion des clés | flutter_secure_storage (Keychain/Keystore) |
-| State management | Riverpod (optionnel) |
+| | |
+|---|---|
+| 🏠 **Accueil** | Parties en cours et parties archivées, en un coup d'œil |
+| 🎲 **Création** | Nommez la partie, installez les joueurs, distribuez les rôles |
+| 🃏 **26 rôles** | Villageois, Voyante, Sorcière, Chasseur, Cupidon, Salvateur, Petite Fille, Voleur, Ancien, Renard, Corbeau, Loup-Garou Blanc, Joueur de Flûte, Ange… |
+| 🌙 **Écran de nuit** | Formulaire qui ne propose que les actions des rôles **encore en vie** |
+| ⚖️ **Résolution automatique** | Protections, potions, cumul d'attaques, **cascade de chagrin** entre amoureux, infections, élection du Capitaine |
+| 📜 **Historique** | Chronologie complète : chaque tour, chaque action horodatée, chaque bilan |
+| 🔐 **Export chiffré** | JSON protégé par mot de passe (AES-256-GCM), partageable |
+| 📥 **Import** | Rechargez un export sur n'importe quel appareil |
+| 🗄️ **Archivage** | Rangez les parties terminées sans les perdre |
 
-## 📁 Architecture du projet
-
-```
-lib/
-├── main.dart                 # Point d'entré, setup SQLCipher
-├── database/
-│   ├── database.dart         # Configuration Drift + SQLCipher
-│   ├── schema.dart           # Sché·µ de la base (tables)
-│   └── migrations.dart       # Migrations de schéma
-├── models/                   # Modèle Dart (Player, Night, Action, Couple)
-├── services/
-│   ├── security_service.dart # Gestion des clés de chiffrement
-│   └── export_service.dart   # Export JSON chiffré
-├── screens/                  # Écrans de l'app
-│   ├── home_screen.dart      # Liste des parties
-│   ├── game_screen.dart      # Détail d'une partie
-│   ├── night_screen.dart     # Saisie des actions de nuit
-│   └── export_screen.dart    # Export/sauvegarde
-└── widgets/                  # Composants réutilisables
-```
+---
 
 ## 🚀 Démarrage rapide
 
 ### Prérequis
 
-- Flutter SDK 3.x installé ([guide d'installation](https://docs.flutter.dev/get-started/install))
-- Un émulateur ou un appareil physique (Android/iOS)
+- **Flutter 3.47** ou plus récent ([guide d'installation](https://docs.flutter.dev/get-started/install))
+- Pour Android : un SDK Android avec la plateforme **android-35** et Java 17+
+- Un appareil ou un émulateur Android / iOS
 
 ### Installation
 
 ```bash
-# Cloner le repo
 git clone https://github.com/Jsamuel79/werewolf-narrator.git
 cd werewolf-narrator
 
-# Installer les dépendances
+# Dépendances
 flutter pub get
 
-# Lancer l'app (détecte l' appareil/émulateur)
+# Lancer l'application
 flutter run
 ```
 
-### Build APK (Android)
+> ℹ️ Le code Drift généré (`lib/core/database/app_database.g.dart`) est versionné,
+> le projet compile donc directement après un `flutter pub get`.
+> Si vous **modifiez les tables** dans `lib/core/database/tables.dart`, régénérez-le :
+>
+> ```bash
+> dart run build_runner build
+> ```
+
+### Tests et qualité
+
+```bash
+flutter analyze   # doit être vide
+flutter test      # 129 tests
+```
+
+### Build APK
 
 ```bash
 flutter build apk --release
 ```
 
-L'APK sera génré·¢ dans `build/app/outputs/flutter-apk/app-release.apk`.
+L'APK est produit dans `build/app/outputs/flutter-apk/app-release.apk`.
+
+> ⚠️ Le build de release utilise pour l'instant la **clé de signature de debug**
+> (configuration par défaut de `flutter create`). Pour publier sur le Play Store,
+> créez un keystore et remplissez `signingConfigs.release` dans
+> [`android/app/build.gradle.kts`](android/app/build.gradle.kts).
+
+---
+
+## 🛠️ Stack technique
+
+| Composant | Technologie |
+|-----------|-------------|
+| Framework | Flutter 3.47.3 / Dart 3.13.3 |
+| État & injection | Riverpod 3 |
+| Base de données | Drift (SQLite typé) |
+| Chiffrement de la base | SQLCipher AES-256, via `source: sqlcipher` de `package:sqlite3` |
+| Stockage de la clé | `flutter_secure_storage` (Keystore / Keychain) |
+| Export chiffré | `encrypt` (AES-GCM) + `pointycastle` (PBKDF2) |
+| Partage / import | `share_plus`, `file_picker` |
+| Tests | `flutter_test`, `mocktail`, base Drift en mémoire |
+
+---
+
+## 📁 Structure du projet
+
+```
+lib/
+├── main.dart              # bootstrap : clé → base chiffrée → ProviderScope
+├── app.dart               # MaterialApp, thème, locale française
+├── core/                  # base de données, sécurité, thème, utilitaires
+└── features/
+    ├── games/             # parties, joueurs, rôles
+    ├── nights/            # nuits, actions, moteur de résolution
+    ├── history/           # chronologie d'une partie
+    └── export/            # export / import chiffré
+```
+
+Chaque feature est découpée en `domain` (métier pur), `data` (accès aux
+données) et `presentation` (écrans et contrôleurs). Le détail complet — schéma
+de base, décisions d'architecture, flux de données — est dans
+[`.claude/ARCHITECTURE.md`](.claude/ARCHITECTURE.md).
+
+---
 
 ## 🔐 Sécurité
 
-- **Base de données chiffré·¢** avec SQLCipher (AES-256)
-- **Clé·µ stocké·¢** dans le Keychain (iOS) / EncryptedSharedPreferences (Android)
-- **Aucune donnée envoyé** au réseau (100% local)
-- **Export optionnel** en JSON chiffré (mot de passe)
+- **Base chiffrée** : SQLCipher AES-256. Le fichier `.db` est illisible en
+  dehors de l'application — un test relit le fichier brut pour le vérifier.
+- **Clé** : 32 octets tirés de `Random.secure()` au premier lancement, stockés
+  uniquement dans le Keystore Android / le Keychain iOS. Jamais en dur dans le
+  code, jamais versionnée.
+- **Zéro réseau** : la permission `INTERNET` n'est **pas** déclarée dans le
+  manifeste de release, et aucun paquet utilisé n'appelle le réseau. Un test
+  automatisé empêche la régression.
+- **Export** : AES-256-GCM, clé dérivée du mot de passe par PBKDF2-HMAC-SHA256
+  (150 000 itérations, sel et nonce aléatoires). Aucun export en clair n'est
+  possible ; un mauvais mot de passe est rejeté au lieu de produire n'importe
+  quoi.
+- **Journaux** : aucune clé ni aucun mot de passe n'apparaît dans les messages
+  d'erreur.
 
-## 📊 Schéma de la base de données
+> ⚠️ Si la clé du Keystore est perdue (désinstallation de l'application,
+> réinitialisation de l'appareil), les parties existantes deviennent
+> **définitivement illisibles**. Exportez les parties auxquelles vous tenez.
 
-### Tables principales
+---
 
-#### `players`
-- `id` (TEXT, UUID)
-- `name` (TEXT)
-- `role` (TEXT)
-- `isAlive` (BOOLEAN)
-- `isCoupledWith` (TEXT, nullable, référence player.id)
-- `notes` (TEXT)
+## 📚 Documentation
 
-#### `nights`
-- `id` (TEXT, UUID)
-- `gameId` (TEXT, référence games.id)
-- `nightNumber` (INTEGER)
-- `createdAt` (DATETIME)
+| Fichier | Contenu |
+|---------|---------|
+| [`.claude/ARCHITECTURE.md`](.claude/ARCHITECTURE.md) | Architecture, schéma de base, décisions techniques, roadmap |
+| [`CHANGELOG.md`](CHANGELOG.md) | Historique des versions |
+| [`SETUP_LOG.md`](SETUP_LOG.md) | Journal d'installation et des problèmes résolus pendant le build |
 
-#### `actions`
-- `id` (TEXT, UUID)
-- `nightId` (TEXT, référence nights.id)
-- `type` (TEXT: kill, save, visit, couple, reveal, etc.)
-- `fromPlayerId` (TEXT, nullable, référence players.id)
-- `toPlayerId` (TEXT, nullable, référence players.id)
-- `details` (TEXT, JSON)
-
-#### `games`
-- `id` (TEXT, UUID)
-- `name` (TEXT)
-- `createdAt` (DATETIME)
-- `isArchived` (BOOLEAN)
-
-## 🧪 Développeur
-
-### Ajouter une migration
-
-```dart
-// database/migrations.dart
-@DriftDatabase(tables: [...])
-class AppDatabase extends _$AppDatabase {
-  @override
-  int get schemaVersion => 2; // Incrémenter à chaque migration
-
-  @override
-  MigrationStrategy get migration {
-    return MigrationStrategy(
-      onCreate: (Migrator m) async {
-        await m.createAll();
-      },
-      onUpgrade: (Migrator m, int from, int to) async {
-        if (from < 2) {
-          // Ajouter nouvelle colonne/table
-        }
-      },
-    );
-  }
-}
-```
-
-### Ressources utiles
-
-- [Drift documentation](https://drift.simonbinder.eu/)
-- [SQLCipher dans Flutter](https://asoasis.tech/articles/2026-07-18-0854-flutter-sqlcipher-encrypted-database/)
-- [Flutter secure storage](https://pub.dev/packages/flutter_secure_storage)
+---
 
 ## 📝 Licence
 
-MIT — utilise, modifie, distribue comme tu veux !
-
-## 🤝 Contribution
-
-Les PR sont les bienvenues ! Ouvre une issue pour discuter des features avant de coder.
+MIT — utilisez, modifiez, distribuez comme vous voulez.
 
 ---
 

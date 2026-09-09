@@ -117,10 +117,11 @@ class ExportService {
     }
   }
 
-  /// Restores an encrypted archive as a brand new game.
+  /// Restores an encrypted archive as a brand new game, and returns it.
   ///
-  /// Every id is regenerated so the same file can be imported twice, and so an
-  /// import never overwrites a game already on the device.
+  /// Every id is regenerated — including the returned game's — so the same file
+  /// can be imported twice, and an import never overwrites a game already on
+  /// the device.
   Future<Game> importGame({
     required String envelopeJson,
     required String password,
@@ -147,6 +148,15 @@ class ExportService {
       for (final player in archive.players) player.id: _uuid.v4(),
     };
     final now = _now();
+    final restored = Game(
+      id: newGameId,
+      name: archive.game.name,
+      createdAt: archive.game.createdAt,
+      updatedAt: now,
+      status: archive.game.status,
+      isArchived: archive.game.isArchived,
+      notes: archive.game.notes,
+    );
 
     await _db.transaction(() async {
       await _db
@@ -226,7 +236,7 @@ class ExportService {
       }
     });
 
-    return archive.game.copyWith(updatedAt: now);
+    return restored;
   }
 
   /// The stored recap references player ids too, so it needs the same remap.

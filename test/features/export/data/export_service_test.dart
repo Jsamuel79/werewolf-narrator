@@ -145,12 +145,15 @@ void main() {
       await games.deleteGame(game.id);
       expect(await games.watchGames(archived: false).first, isEmpty);
 
-      await service.importGame(
+      final returned = await service.importGame(
         envelopeJson: envelope,
         password: 'motdepasse',
       );
 
       final restored = (await games.watchGames(archived: false).first).single;
+      // The returned game carries the new id, so callers can open it directly.
+      expect(returned.id, restored.game.id);
+      expect(returned.id, isNot(game.id));
       expect(restored.game.name, 'Partie du samedi');
       expect(restored.players.map((p) => p.name), [
         'Alice',

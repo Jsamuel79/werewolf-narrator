@@ -222,7 +222,7 @@ abstract final class NightResolver {
     required Set<String> alreadyUsedOncePerGameIds,
   }) {
     final aliveRoles = snapshot.aliveRoleIds;
-    final hasHunterDeadThisRound = snapshot.players.any(
+    final gameHasHunter = snapshot.players.any(
       (p) => p.roleId == Roles.hunter.id,
     );
 
@@ -236,7 +236,7 @@ abstract final class NightResolver {
       if (roleId == null) return true;
       // The hunter shoots as he dies, so his action stays available for as long
       // as he is part of the game at all.
-      if (roleId == Roles.hunter.id) return hasHunterDeadThisRound;
+      if (roleId == Roles.hunter.id) return gameHasHunter;
       return aliveRoles.contains(roleId);
     }).toList(growable: false);
   }

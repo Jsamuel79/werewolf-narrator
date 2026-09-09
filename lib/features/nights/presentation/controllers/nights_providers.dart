@@ -30,7 +30,13 @@ final nightContextProvider = StreamProvider.family<NightContext?, NightRef>((
   ref,
   args,
 ) async* {
-  final snapshot = ref.watch(gameSnapshotProvider(args.gameId)).value;
+  final snapshotAsync = ref.watch(gameSnapshotProvider(args.gameId));
+  if (snapshotAsync.isLoading && !snapshotAsync.hasValue) {
+    // Emit nothing: the provider stays in its loading state and rebuilds once
+    // the board arrives, instead of flashing "night not found".
+    return;
+  }
+  final snapshot = snapshotAsync.value;
   if (snapshot == null) {
     yield null;
     return;

@@ -58,16 +58,9 @@ class HomeScreen extends ConsumerWidget {
   Future<void> _import(BuildContext context, WidgetRef ref) async {
     final game = await importGameFlow(context, ref);
     if (game == null || !context.mounted) return;
-    // The imported game is stored under a fresh id, so look it up by name in
-    // the refreshed list rather than trusting the archive's own id.
-    final games = await ref.read(gamesRepositoryProvider).watchGames(
-      archived: game.isArchived,
-    ).first;
-    final restored = games.where((s) => s.game.name == game.name).firstOrNull;
-    if (restored == null || !context.mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => GameDetailScreen(gameId: restored.game.id),
+        builder: (_) => GameDetailScreen(gameId: game.id),
       ),
     );
   }

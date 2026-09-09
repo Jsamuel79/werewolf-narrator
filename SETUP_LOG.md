@@ -141,3 +141,64 @@ Future<void> disposeTree(WidgetTester tester) async {
 l'horloge simulée, donc le timer à durée nulle n'est jamais exécuté. `pumpAndSettle()`
 avance par pas de 100 ms et le déclenche.
 
+### ⚠️ Problème n°3 — `find.text` ne voit pas le texte d'un `RichText`
+
+L'historique affiche chaque action dans un `RichText` (libellé + détail dans un
+style plus discret). `find.text('Vision de la Voyante')` ne trouvait rien, et
+`find.text(..., findRichText: true)` non plus : ce finder exige que **tout** le
+texte du `RichText` corresponde, or il contient aussi les cibles et le détail.
+
+**Résolution** — utiliser `find.textContaining(..., findRichText: true)`.
+
+### ⚠️ Problème n°4 — un `const` qui ne l'est pas
+
+`const key = 'ff' * 32;` ne compile pas : l'opérateur `*` sur une `String` n'est
+pas évaluable à la compilation en Dart. Remplacé par `final`.
+
+### ⚠️ Problème n°5 — `StreamProviderFamily` n'existe plus
+
+Riverpod 3 a supprimé les classes de famille exportées publiquement
+(`StreamProviderFamily`, `AutoDisposeStreamProviderFamily`, …). Annoter
+explicitement le type d'un `StreamProvider.family` échoue donc à l'analyse.
+
+**Résolution** — laisser l'inférence faire son travail :
+
+```dart
+final gameSnapshotProvider =
+    StreamProvider.family<GameSnapshot?, String>((ref, gameId) {
+      return ref.watch(gamesRepositoryProvider).watchGame(gameId);
+    }, isAutoDispose: true);
+```
+
+À noter aussi : en Riverpod 3, `Provider.autoDispose` cède la place au paramètre
+`isAutoDispose: true`.
+
+### 🔐 Choix de conception sur l'export chiffré
+
+Le brief impose AES-GCM via `package:encrypt`. Un mot de passe utilisateur ne
+pouvant pas servir directement de clé AES-256, il est étiré par **PBKDF2-HMAC-SHA256**
+(`pointycastle`), avec un sel aléatoire de 16 octets et 150 000 itérations.
+
+Mesure du coût sur cette machine : **~480 ms pour le chiffrement, ~510 ms pour le
+déchiffrement**. C'est volontairement lent (c'est le but d'une KDF) ; l'interface
+affiche donc un indicateur de progression bloquant pendant l'opération.
+
+Détail important : l'en-tête de l'enveloppe (version, algorithme de KDF, nombre
+d'itérations, sel, nonce) est passé en **AAD** au chiffrement GCM. Sans cela, un
+fichier pourrait être réécrit avec `iterations: 1` sans invalider le tag
+d'authentification. L'AAD est reconstruit champ par champ plutôt que depuis le
+texte JSON, pour qu'un simple reformatage du fichier ne casse pas un import
+légitime.
+
+### 📴 Vérification « zéro réseau »
+
+`flutter create` place la permission `INTERNET` dans les manifestes **debug** et
+**profile** uniquement (le tooling Flutter en a besoin pour le hot reload). Le
+manifeste `main`, celui qui part en release, ne la déclare pas — un commentaire
+l'explique désormais explicitement, et
+`test/security/offline_guarantee_test.dart` vérifie automatiquement :
+
+1. que le manifeste de release ne contient pas `android.permission.INTERNET` ;
+2. que les manifestes debug/profile la contiennent bien (séparation intacte) ;
+3. qu'aucun fichier de `lib/` n'ouvre de socket ni de client HTTP.
+

@@ -54,66 +54,89 @@ L'`AndroidManifest.xml` **ne déclare pas** la permission `INTERNET`.
 
 ```
 lib/
-├── main.dart                        # bootstrap : secure storage → clé → DB → ProviderScope
-├── app.dart                         # MaterialApp, thème, routes nommées
+├── main.dart                          # bootstrap : clé → base chiffrée → ProviderScope
+├── app.dart                           # MaterialApp, thème, locale fr_FR, écran d'échec
 │
-├── core/                            # transverse à toutes les features
+├── core/                              # transverse à toutes les features
 │   ├── database/
-│   │   ├── app_database.dart        # @DriftDatabase, migrations, DAOs
-│   │   ├── tables.dart              # définition des 4 tables
-│   │   └── database_opener.dart     # ouverture SQLCipher (PRAGMA key) + fallback
+│   │   ├── tables.dart                # les 4 tables Drift
+│   │   ├── app_database.dart          # @DriftDatabase, migrations, PRAGMA foreign_keys
+│   │   ├── app_database.g.dart        # généré par build_runner (versionné, cf. D7)
+│   │   └── database_opener.dart       # ouverture SQLCipher (PRAGMA key)
 │   ├── security/
-│   │   ├── key_store.dart           # génération/lecture de la clé DB (secure storage)
-│   │   └── crypto_service.dart      # AES-GCM + PBKDF2 pour l'export/import
-│   ├── providers/
-│   │   └── core_providers.dart      # providers racine (database, uuid, services)
-│   ├── errors/
-│   │   └── app_exception.dart       # hiérarchie d'exceptions métier
-│   ├── theme/
-│   │   └── app_theme.dart           # Material 3, thème sombre « nuit »
+│   │   ├── key_store.dart             # clé DB : génération + Keystore/Keychain
+│   │   └── crypto_service.dart        # AES-256-GCM + PBKDF2 pour l'export
+│   ├── providers/core_providers.dart  # appDatabaseProvider, uuidProvider, clockProvider
+│   ├── errors/app_exception.dart      # hiérarchie scellée d'exceptions métier
+│   ├── theme/app_theme.dart           # Material 3 sombre + couleurs de camps
 │   └── utils/
-│       └── formatters.dart          # dates FR, pluriels
+│       ├── formatters.dart            # dates FR, pluriels
+│       └── ui_feedback.dart           # runGuarded / showMessage
 │
 └── features/
-    ├── games/                       # parties, joueurs, rôles
+    ├── games/
     │   ├── domain/
-    │   │   ├── role.dart            # catalogue extensible de rôles
-    │   │   ├── game_entities.dart   # Game, Player, GameSnapshot (entités pures)
-    │   │   └── games_repository.dart
+    │   │   ├── role.dart                    # catalogue de 26 rôles
+    │   │   ├── game_entities.dart           # Game, Player, GameSnapshot
+    │   │   └── games_repository.dart        # interface + PlayerDraft
     │   ├── data/
+    │   │   ├── game_mappers.dart            # rows Drift ↔ entités
     │   │   └── games_repository_impl.dart
     │   └── presentation/
     │       ├── home_screen.dart
     │       ├── game_setup_screen.dart
     │       ├── game_detail_screen.dart
-    │       ├── controllers/…
-    │       └── widgets/…
+    │       ├── controllers/
+    │       │   ├── games_providers.dart
+    │       │   ├── game_setup_controller.dart
+    │       │   └── game_board_controller.dart
+    │       └── widgets/
+    │           ├── game_card.dart
+    │           ├── player_tile.dart
+    │           ├── player_actions_sheet.dart
+    │           ├── role_badge.dart
+    │           └── role_picker_sheet.dart
     │
-    ├── nights/                      # nuits, actions, résolution
+    ├── nights/
     │   ├── domain/
-    │   │   ├── night_action_type.dart   # catalogue des types d'action
-    │   │   ├── night_entities.dart      # Night, NightAction, NightOutcome
-    │   │   ├── night_resolver.dart      # ⚙️ moteur de résolution (pur, testable)
+    │   │   ├── night_action_type.dart       # catalogue de 21 types d'actions
+    │   │   ├── night_entities.dart          # Night, NightAction, NightOutcome
+    │   │   ├── night_resolver.dart          # ⚙️ moteur de résolution (pur)
     │   │   └── nights_repository.dart
     │   ├── data/
-    │   │   └── nights_repository_impl.dart
+    │   │   ├── night_mappers.dart
+    │   │   └── nights_repository_impl.dart  # + NightContext (vue pour l'écran)
     │   └── presentation/
     │       ├── night_screen.dart
-    │       ├── controllers/…
-    │       └── widgets/…
+    │       ├── controllers/nights_providers.dart
+    │       └── widgets/
+    │           ├── action_entry_dialog.dart
+    │           └── night_outcome_view.dart
     │
     ├── history/
     │   └── presentation/history_screen.dart
     │
     └── export/
-        ├── domain/game_archive.dart     # DTO sérialisable d'une partie complète
-        ├── data/export_service.dart     # build JSON → chiffrer → fichier → share
-        └── presentation/export_dialog.dart, import_dialog.dart
+        ├── domain/game_archive.dart         # DTO sérialisable d'une partie complète
+        ├── data/export_service.dart         # archive → chiffrement → fichier ; et retour
+        └── presentation/
+            ├── export_actions.dart          # parcours export / import
+            ├── password_dialog.dart
+            └── controllers/export_providers.dart
 ```
 
 **Règle de dépendance** : `presentation → domain ← data`.
-La couche `domain` ne dépend ni de Flutter ni de Drift (sauf les entités mappées),
-ce qui rend le moteur de résolution des nuits testable en pur Dart.
+La couche `domain` ne dépend ni de Flutter ni de Drift, ce qui rend le moteur de
+résolution des nuits testable en pur Dart.
+
+Les features se composent au niveau `presentation` uniquement : l'écran de partie
+(`games`) affiche la liste des nuits (`nights`) et ouvre l'historique (`history`),
+mais aucun repository ne dépend d'une autre feature.
+
+### Miroir des tests
+
+`test/` reprend l'arborescence de `lib/`, plus un dossier `test/security/` qui
+garde les promesses de sécurité (pas de permission réseau, pas de socket).
 
 ---
 
@@ -247,7 +270,11 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D5** | Export = **AES-256-GCM** avec clé dérivée par **PBKDF2-HMAC-SHA256 (150 000 itérations)** | Le brief impose AES-GCM ; un mot de passe utilisateur ne peut pas servir de clé directement. Sel et nonce aléatoires par export. |
 | **D6** | Le catalogue de rôles est du **code**, pas une table | Les rôles ne changent pas par partie ; les mettre en DB imposerait des migrations pour chaque ajout. |
 | **D7** | `*.g.dart` reste ignoré **sauf** `lib/core/database/app_database.g.dart`, qui est versionné | Le repo doit compiler depuis un clone frais sans lancer `build_runner` au préalable. C'est le seul fichier généré du projet. |
-| **D8** | Les tests utilisent `NativeDatabase.memory()` (SQLite standard, non chiffré) | SQLCipher n'est pas disponible sur la VM Dart de test ; le chiffrement est une propriété de l'**ouverture** du fichier, orthogonale à la logique testée. |
+| **D8** | Les tests de logique utilisent `NativeDatabase.memory()` (non chiffré) | Le chiffrement est une propriété de l'**ouverture** du fichier, orthogonale à la logique testée. Il est vérifié séparément, sur un vrai fichier, par `test/core/database/database_encryption_test.dart`. |
+| **D9** | L'en-tête de l'export est passé en **AAD** au chiffrement GCM | Sans cela, un attaquant pourrait réécrire `iterations` ou `version` sans invalider le tag. L'AAD est reconstruit champ par champ, pas depuis le texte JSON, pour qu'un reformatage du fichier ne casse pas un import légitime. |
+| **D10** | L'import **régénère tous les identifiants** | Permet d'importer deux fois le même fichier, et garantit qu'un import n'écrase jamais une partie déjà présente. Les couples, les actions et les bilans stockés sont remappés en conséquence. |
+| **D11** | Le Capitaine, les charmes et les rôles modifiés sont appliqués par `NightResolver.apply` | Une seule fonction décrit l'effet d'un tour sur le plateau ; le repository n'est plus qu'une traduction en SQL. |
+| **D12** | Les tests de widgets démontent l'arbre **dans** le corps du test | Drift planifie un timer à durée nulle en annulant un stream ; le laisser au teardown fait échouer l'invariant « A Timer is still pending ». Voir SETUP_LOG.md, problème n°2. |
 
 ---
 
@@ -267,16 +294,26 @@ WidgetsFlutterBinding.ensureInitialized()
 
 ## 9. Roadmap
 
-- [ ] **E0 — Setup** : SDK Flutter, scaffold du projet, dépendances, CI locale (analyze+test)
-- [ ] **E1 — Noyau sécurité & DB** : `KeyStore`, ouverture SQLCipher, tables Drift, DAOs
-- [ ] **E2 — Catalogue de rôles** : `RoleDefinition` + liste extensible
-- [ ] **E3 — Feature games** : repository, providers, écran d'accueil (actives/archivées)
-- [ ] **E4 — Création de partie** : nom → joueurs → assignation des rôles
-- [ ] **E5 — Détail de partie** : vue joueurs, statut, couples, actions rapides
-- [ ] **E6 — Feature nights** : moteur de résolution + repository + persistance
-- [ ] **E7 — Écran nuit** : formulaire dynamique selon rôles vivants + résumé de fin
-- [ ] **E8 — Historique** : chronologie complète d'une partie
-- [ ] **E9 — Export chiffré** : JSON → AES-GCM → partage
-- [ ] **E10 — Import chiffré** : lecture d'un export + restauration
-- [ ] **E11 — Archivage / suppression** de partie
-- [ ] **E12 — Finalisation** : `flutter analyze` clean, tests verts, build APK release, docs
+- [x] **E0 — Setup** : SDK Flutter, scaffold du projet, dépendances, lints
+- [x] **E1 — Noyau sécurité & DB** : `KeyStore`, ouverture SQLCipher, tables Drift
+- [x] **E2 — Catalogue de rôles** : 26 rôles extensibles, 21 types d'actions
+- [x] **E3 — Feature games** : repository, providers, écran d'accueil (actives/archivées)
+- [x] **E4 — Création de partie** : nom → joueurs → assignation des rôles
+- [x] **E5 — Détail de partie** : vue joueurs, statut, couples, retouches manuelles
+- [x] **E6 — Feature nights** : moteur de résolution + repository + persistance
+- [x] **E7 — Écran nuit** : formulaire dynamique selon rôles vivants + résumé de fin
+- [x] **E8 — Historique** : chronologie complète d'une partie
+- [x] **E9 — Export chiffré** : JSON → AES-GCM → partage
+- [x] **E10 — Import chiffré** : lecture d'un export + restauration sous de nouveaux ids
+- [x] **E11 — Archivage / suppression** de partie
+- [x] **E12 — Finalisation** : `flutter analyze` clean, 129 tests verts, APK release, docs
+
+### Pistes pour une version ultérieure
+
+Hors périmètre du MVP, notées ici pour ne pas être oubliées :
+
+- Détection automatique des conditions de victoire (village / loups / solitaires).
+- Minuteur de tour de parole pour les débats du village.
+- Rappel des pouvoirs passifs au bon moment (Ancien, Idiot du village, Chevalier).
+- Signature de release avec un keystore dédié (aujourd'hui la clé de debug).
+- Sauvegarde chiffrée automatique après chaque nuit.
