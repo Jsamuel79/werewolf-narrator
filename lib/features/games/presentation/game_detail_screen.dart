@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../core/utils/ui_feedback.dart';
+import '../../nights/domain/night_entities.dart';
+import '../../nights/presentation/controllers/nights_providers.dart';
+import '../../nights/presentation/night_screen.dart';
 import '../domain/game_entities.dart';
 import '../domain/role.dart';
 import 'controllers/game_board_controller.dart';
@@ -90,6 +94,8 @@ class _GameDetailView extends ConsumerWidget {
             _CouplesCard(snapshot: snapshot),
           ],
           const SizedBox(height: 20),
+          _NightsSection(snapshot: snapshot),
+          const SizedBox(height: 20),
           _SectionTitle(
             title: 'Joueurs',
             trailing: TextButton.icon(
@@ -109,6 +115,30 @@ class _GameDetailView extends ConsumerWidget {
               ),
             ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _startNight(context, ref),
+        icon: const Icon(Icons.nightlight_round),
+        label: const Text('Nouvelle nuit'),
+      ),
+    );
+  }
+
+  Future<void> _startNight(BuildContext context, WidgetRef ref) async {
+    final navigator = Navigator.of(context);
+    Night? night;
+    final ok = await runGuarded(context, () async {
+      night = await ref
+          .read(nightsRepositoryProvider)
+          .startNight(snapshot.game.id);
+    });
+    if (!ok || night == null) return;
+    await navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => NightScreen(
+          gameId: snapshot.game.id,
+          nightId: night!.id,
+        ),
       ),
     );
   }
@@ -336,5 +366,87 @@ class _SectionTitle extends StatelessWidget {
         ?trailing,
       ],
     );
+  }
+}
+
+class _NightsSection extends ConsumerWidget {
+  const _NightsSection({required this.snapshot});
+
+  final GameSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final nightsAsync = ref.watch(gameNightsProvider(snapshot.game.id));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle(title: 'Nuits'),
+        const SizedBox(height: 4),
+        nightsAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, _) => Text('$error'),
+          data: (nights) {
+            if (nights.isEmpty) {
+              return const Card(
+                child: ListTile(
+                  leading: Icon(Icons.bedtime_outlined),
+                  title: Text('La partie n\'a pas encore commencé'),
+                  subtitle: Text(
+                    'Touchez « Nouvelle nuit » pour ouvrir le premier tour.',
+                  ),
+                ),
+              );
+            }
+            return Column(
+              children: [
+                for (final night in nights)
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        child: Text('${night.nightNumber}'),
+                      ),
+                      title: Text(
+                        night.isResolved
+                            ? 'Nuit ${night.nightNumber}'
+                            : 'Nuit ${night.nightNumber} — en cours',
+                      ),
+                      subtitle: Text(_summaryOf(night)),
+                      trailing: Icon(
+                        night.isResolved
+                            ? Icons.lock_outline
+                            : Icons.edit_outlined,
+                        size: 18,
+                      ),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => NightScreen(
+                            gameId: snapshot.game.id,
+                            nightId: night.id,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  String _summaryOf(Night night) {
+    final outcome = night.outcome;
+    if (outcome == null) return formatDateTimeFr(night.createdAt);
+    if (outcome.deaths.isEmpty) return 'Aucune victime';
+    final names = outcome.deaths
+        .map((d) => snapshot.playerById(d.playerId)?.name ?? '?')
+        .join(', ');
+    return '💀 $names';
   }
 }
