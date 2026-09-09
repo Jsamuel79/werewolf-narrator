@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/ui_feedback.dart';
+import '../../export/presentation/export_actions.dart';
 import '../../history/presentation/history_screen.dart';
 import '../../nights/domain/night_entities.dart';
 import '../../nights/presentation/controllers/nights_providers.dart';
@@ -80,6 +81,13 @@ class _GameDetailView extends ConsumerWidget {
                         ? 'Reprendre la partie'
                         : 'Terminer la partie',
                   ),
+                ),
+              ),
+              const PopupMenuItem(
+                value: _MenuAction.export,
+                child: ListTile(
+                  leading: Icon(Icons.ios_share),
+                  title: Text('Exporter (chiffré)'),
                 ),
               ),
               PopupMenuItem(
@@ -169,6 +177,8 @@ class _GameDetailView extends ConsumerWidget {
           context,
           () => controller.setStatus(gameId: game.id, status: next),
         );
+      case _MenuAction.export:
+        await exportGameFlow(context, ref, game);
       case _MenuAction.toggleArchive:
         await runGuarded(
           context,
@@ -263,7 +273,7 @@ class _GameDetailView extends ConsumerWidget {
   }
 }
 
-enum _MenuAction { toggleStatus, toggleArchive }
+enum _MenuAction { toggleStatus, export, toggleArchive }
 
 class _BoardSummary extends StatelessWidget {
   const _BoardSummary({required this.snapshot});

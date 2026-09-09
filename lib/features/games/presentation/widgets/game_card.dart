@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../domain/game_entities.dart';
 
-enum GameCardAction { archive, unarchive, rename, delete }
+enum GameCardAction { archive, unarchive, rename, export, delete }
 
 class GameCard extends StatelessWidget {
   const GameCard({
@@ -72,6 +72,13 @@ class GameCard extends StatelessWidget {
                     child: ListTile(
                       leading: Icon(Icons.edit_outlined),
                       title: Text('Renommer'),
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: GameCardAction.export,
+                    child: ListTile(
+                      leading: Icon(Icons.ios_share),
+                      title: Text('Exporter (chiffré)'),
                     ),
                   ),
                   if (game.isArchived)

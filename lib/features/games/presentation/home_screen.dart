@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/ui_feedback.dart';
+import '../../export/presentation/export_actions.dart';
 import '../domain/game_entities.dart';
 import 'controllers/games_providers.dart';
 import 'game_detail_screen.dart';
@@ -23,6 +24,13 @@ class HomeScreen extends ConsumerWidget {
               Text('Werewolf Narrator'),
             ],
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.file_open_outlined),
+              tooltip: 'Importer une partie',
+              onPressed: () => _import(context, ref),
+            ),
+          ],
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Parties en cours'),
@@ -43,6 +51,23 @@ class HomeScreen extends ConsumerWidget {
           icon: const Icon(Icons.add),
           label: const Text('Nouvelle partie'),
         ),
+      ),
+    );
+  }
+
+  Future<void> _import(BuildContext context, WidgetRef ref) async {
+    final game = await importGameFlow(context, ref);
+    if (game == null || !context.mounted) return;
+    // The imported game is stored under a fresh id, so look it up by name in
+    // the refreshed list rather than trusting the archive's own id.
+    final games = await ref.read(gamesRepositoryProvider).watchGames(
+      archived: game.isArchived,
+    ).first;
+    final restored = games.where((s) => s.game.name == game.name).firstOrNull;
+    if (restored == null || !context.mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GameDetailScreen(gameId: restored.game.id),
       ),
     );
   }
@@ -115,6 +140,8 @@ class _GameList extends ConsumerWidget {
         final name = await _askName(context, game.name);
         if (name == null || !context.mounted) return;
         await runGuarded(context, () => repository.renameGame(game.id, name));
+      case GameCardAction.export:
+        await exportGameFlow(context, ref, game);
       case GameCardAction.delete:
         final confirmed = await _confirmDelete(context, game.name);
         if (!confirmed || !context.mounted) return;

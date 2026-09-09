@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Werewolf Narrator works entirely offline: no INTERNET permission is
+         declared here on purpose, so the release build physically cannot reach
+         the network. The debug and profile manifests add it because the Flutter
+         tooling needs it for hot reload; it is never merged into a release. -->
     <application
         android:label="werewolf_narrator"
         android:name="${applicationName}"
