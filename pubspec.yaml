@@ -1,0 +1,53 @@
+name: werewolf_narrator
+description: "Assistant de narration hors-ligne pour le jeu Loup-Garou"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State management / DI
+  flutter_riverpod: ^3.4.3
+
+  # Local encrypted database
+  drift: ^2.35.0
+  sqlite3: ^3.5.2
+
+  # Encryption key storage (Keystore / Keychain)
+  flutter_secure_storage: ^11.0.0
+
+  # Encrypted export / import
+  encrypt: ^5.0.3
+  pointycastle: ^3.9.1
+  crypto: ^3.0.7
+  share_plus: ^13.3.0
+  file_picker: ^12.2.0
+
+  # Misc
+  uuid: ^4.6.0
+  path_provider: ^2.1.6
+  path: ^1.9.1
+  intl: ^0.20.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  drift_dev: ^2.35.0
+  build_runner: ^2.16.1
+  mocktail: ^1.0.5
+
+# Selects the SQLCipher community build of SQLite (AES-256 page encryption).
+# Since sqlite3 3.x this replaces the deprecated `sqlcipher_flutter_libs` package.
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlcipher
+
+flutter:
+  uses-material-design: true

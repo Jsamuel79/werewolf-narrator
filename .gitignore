@@ -93,5 +93,8 @@ coverage/
 
 # Generated files
 *.g.dart
+# ...except the Drift database code, committed so the repo builds from a fresh
+# clone without running build_runner first (see ARCHITECTURE.md, decision D7).
+!lib/core/database/app_database.g.dart
 *.freezed.dart
 *.mocks.dart
