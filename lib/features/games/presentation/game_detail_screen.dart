@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/ui_feedback.dart';
+import '../../history/presentation/history_screen.dart';
 import '../../nights/domain/night_entities.dart';
 import '../../nights/presentation/controllers/nights_providers.dart';
 import '../../nights/presentation/night_screen.dart';
@@ -58,6 +59,15 @@ class _GameDetailView extends ConsumerWidget {
       appBar: AppBar(
         title: Text(game.name),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Historique complet',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => HistoryScreen(gameId: game.id),
+              ),
+            ),
+          ),
           PopupMenuButton<_MenuAction>(
             onSelected: (action) => _onMenu(context, ref, action),
             itemBuilder: (context) => [
