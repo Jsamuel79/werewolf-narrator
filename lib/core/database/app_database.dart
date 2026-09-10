@@ -13,12 +13,21 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (Migrator m) async {
       await m.createAll();
+    },
+    // Games recorded by an older build must survive an update: every step adds
+    // to the schema, none recreates a table.
+    onUpgrade: (Migrator m, int from, int to) async {
+      if (from < 2) {
+        // v2 — remember which camp won a finished game.
+        await m.addColumn(games, games.winnerCampId);
+        await m.addColumn(games, games.winnerReason);
+      }
     },
     beforeOpen: (OpeningDetails details) async {
       // Drift opens the database before running this, so the cascade deletes

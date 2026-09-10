@@ -224,23 +224,41 @@ class _SetupSummary extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            pluralFr(state.players.length, 'joueur'),
-            style: theme.textTheme.labelLarge,
+          Row(
+            children: [
+              Text(
+                pluralFr(state.players.length, 'joueur'),
+                style: theme.textTheme.labelLarge,
+              ),
+              const Spacer(),
+              Text(
+                wolves == suggested
+                    ? '🐺 $wolves loup${wolves > 1 ? 's' : ''}'
+                    : '🐺 $wolves — suggéré : $suggested',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: wolves == suggested
+                      ? theme.colorScheme.onSurfaceVariant
+                      : theme.colorScheme.tertiary,
+                ),
+              ),
+            ],
           ),
-          const Spacer(),
-          Text(
-            wolves == suggested
-                ? '🐺 $wolves loup${wolves > 1 ? 's' : ''}'
-                : '🐺 $wolves — suggéré : $suggested',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: wolves == suggested
-                  ? theme.colorScheme.onSurfaceVariant
-                  : theme.colorScheme.tertiary,
+          // Without a wolf the village has already won: the game would end on
+          // the very first recap. Better to say so now than at the table.
+          if (wolves == 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                '⚠️ Aucun Loup-Garou : la partie se terminera dès le premier '
+                'bilan par une victoire du Village.',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );

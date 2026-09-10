@@ -10,6 +10,8 @@ extension GameRowMapper on GameRow {
     status: GameStatus.fromId(status),
     isArchived: isArchived,
     notes: notes,
+    winnerCampId: winnerCampId,
+    winnerReason: winnerReason,
   );
 }
 

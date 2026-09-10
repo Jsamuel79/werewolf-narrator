@@ -23,6 +23,8 @@ class Game {
     required this.status,
     this.isArchived = false,
     this.notes,
+    this.winnerCampId,
+    this.winnerReason,
   });
 
   final String id;
@@ -33,12 +35,25 @@ class Game {
   final bool isArchived;
   final String? notes;
 
+  /// Camp that won, set at the same time as [GameStatus.finished].
+  /// Kept as a raw id here so `domain/games` stays independent of the victory
+  /// feature; the screens turn it back into a `VictoryCamp`.
+  final String? winnerCampId;
+  final String? winnerReason;
+
+  bool get isFinished => status == GameStatus.finished;
+
+  bool get hasWinner => winnerCampId != null;
+
   Game copyWith({
     String? name,
     DateTime? updatedAt,
     GameStatus? status,
     bool? isArchived,
     String? notes,
+    String? winnerCampId,
+    String? winnerReason,
+    bool clearWinner = false,
   }) {
     return Game(
       id: id,
@@ -48,6 +63,8 @@ class Game {
       status: status ?? this.status,
       isArchived: isArchived ?? this.isArchived,
       notes: notes ?? this.notes,
+      winnerCampId: clearWinner ? null : winnerCampId ?? this.winnerCampId,
+      winnerReason: clearWinner ? null : winnerReason ?? this.winnerReason,
     );
   }
 }
@@ -150,6 +167,15 @@ class GameSnapshot {
   Player? get captain {
     for (final player in players) {
       if (player.isCaptain) return player;
+    }
+    return null;
+  }
+
+  /// The captain currently in office. A dead captain no longer counts: the
+  /// village has to hand the badge over before the next vote.
+  Player? get aliveCaptain {
+    for (final player in players) {
+      if (player.isCaptain && player.isAlive) return player;
     }
     return null;
   }

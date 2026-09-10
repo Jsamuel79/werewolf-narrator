@@ -7,6 +7,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../games/data/game_mappers.dart';
 import '../../games/domain/game_entities.dart';
+import '../../victory/data/victory_recorder.dart';
 import '../domain/night_action_type.dart';
 import '../domain/night_entities.dart';
 import '../domain/night_resolver.dart';
@@ -18,14 +19,19 @@ class DriftNightsRepository implements NightsRepository {
     required AppDatabase database,
     required Uuid uuid,
     DateTime Function()? clock,
+    VictoryRecorder? victoryRecorder,
   }) : _db = database,
        // ignore: prefer_initializing_formals
        _uuid = uuid,
-       _now = clock ?? DateTime.now;
+       _now = clock ?? DateTime.now,
+       _victory =
+           victoryRecorder ??
+           VictoryRecorder(database: database, clock: clock);
 
   final AppDatabase _db;
   final Uuid _uuid;
   final DateTime Function() _now;
+  final VictoryRecorder _victory;
 
   @override
   Stream<List<Night>> watchNights(String gameId) {
@@ -100,6 +106,18 @@ class DriftNightsRepository implements NightsRepository {
 
   @override
   Future<Night> startNight(String gameId) async {
+    final game = await (_db.select(
+      _db.games,
+    )..where((g) => g.id.equals(gameId))).getSingleOrNull();
+    if (game == null) {
+      throw const ValidationException('Cette partie n\'existe plus.');
+    }
+    if (GameStatus.fromId(game.status) == GameStatus.finished) {
+      throw const GameRuleException(
+        'La partie est terminée : plus aucune nuit ne peut être ouverte.',
+      );
+    }
+
     final open =
         await (_db.select(_db.nights)
               ..where((n) => n.gameId.equals(gameId) & n.resolvedAt.isNull())
@@ -264,6 +282,8 @@ class DriftNightsRepository implements NightsRepository {
         GamesCompanion(updatedAt: Value(_now())),
       );
     });
+
+    await _victory.refresh(detail.night.gameId);
 
     return outcome;
   }

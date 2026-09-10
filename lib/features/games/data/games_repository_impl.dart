@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/errors/app_exception.dart';
+import '../../victory/data/victory_recorder.dart';
 import '../domain/game_entities.dart';
 import '../domain/games_repository.dart';
 import 'game_mappers.dart';
@@ -12,14 +13,19 @@ class DriftGamesRepository implements GamesRepository {
     required AppDatabase database,
     required Uuid uuid,
     DateTime Function()? clock,
+    VictoryRecorder? victoryRecorder,
   }) : _db = database,
        // ignore: prefer_initializing_formals
        _uuid = uuid,
-       _now = clock ?? DateTime.now;
+       _now = clock ?? DateTime.now,
+       _victory =
+           victoryRecorder ??
+           VictoryRecorder(database: database, clock: clock);
 
   final AppDatabase _db;
   final Uuid _uuid;
   final DateTime Function() _now;
+  final VictoryRecorder _victory;
 
   @override
   Stream<List<GameSnapshot>> watchGames({required bool archived}) {
@@ -158,6 +164,9 @@ class DriftGamesRepository implements GamesRepository {
     await (_db.update(_db.games)..where((g) => g.id.equals(gameId))).write(
       GamesCompanion(status: Value(status.id), updatedAt: Value(_now())),
     );
+    // Resuming a finished game drops the verdict; it will be recomputed as
+    // soon as the board moves again.
+    if (status != GameStatus.finished) await _victory.clear(gameId);
   }
 
   @override
@@ -189,6 +198,9 @@ class DriftGamesRepository implements GamesRepository {
       }
       await _touch(players.first.gameId);
     });
+    // Any hand edit can be the one that ends the game — a player marked dead,
+    // a role changed to the last wolf. Checking here covers every write path.
+    await _victory.refresh(players.first.gameId);
   }
 
   @override
@@ -240,6 +252,7 @@ class DriftGamesRepository implements GamesRepository {
       await (_db.delete(_db.players)..where((p) => p.id.equals(playerId))).go();
       await _touch(gameId);
     });
+    await _victory.refresh(gameId);
   }
 
   Future<void> _touch(String gameId) async {

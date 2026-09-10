@@ -32,6 +32,9 @@ void main() {
         PlayerDraft(name: 'Alice', roleId: 'villager'),
         PlayerDraft(name: 'Bob', roleId: 'werewolf'),
         PlayerDraft(name: 'Chloé', roleId: 'seer'),
+        // A fourth seat keeps the village ahead after the first victim, so the
+        // game is still running when the second round opens.
+        PlayerDraft(name: 'David', roleId: 'villager'),
       ],
     );
     snapshot = (await games.loadGame(game.id))!;
@@ -129,7 +132,7 @@ void main() {
     expect(find.textContaining('Alice — Villageois'), findsOneWidget);
     expect(find.textContaining('† tour 1'), findsOneWidget);
     expect(find.textContaining('† tour 2'), findsOneWidget);
-    expect(find.text('En vie'), findsOneWidget);
+    expect(find.text('En vie'), findsNWidgets(2));
 
     await disposeTree(tester);
   });

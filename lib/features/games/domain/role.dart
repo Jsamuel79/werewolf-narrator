@@ -24,6 +24,7 @@ class RoleDefinition {
     required this.emoji,
     this.actsAtNight = false,
     this.firstNightOnly = false,
+    this.wolfSide = false,
   });
 
   final String id;
@@ -39,6 +40,13 @@ class RoleDefinition {
 
   /// Whether that night action only happens on the very first night.
   final bool firstNightOnly;
+
+  /// Whether the role eats with the pack, whatever its [team].
+  ///
+  /// The White Werewolf plays for himself yet hunts with the wolves: the
+  /// village only wins once he is dead too. Victory rules read this flag rather
+  /// than testing role ids one by one.
+  final bool wolfSide;
 
   @override
   String toString() => 'RoleDefinition($id)';
@@ -230,6 +238,7 @@ abstract final class Roles {
     team: RoleTeam.werewolves,
     emoji: '🐺',
     actsAtNight: true,
+    wolfSide: true,
   );
 
   static const RoleDefinition bigBadWolf = RoleDefinition(
@@ -239,6 +248,7 @@ abstract final class Roles {
     team: RoleTeam.werewolves,
     emoji: '🐺',
     actsAtNight: true,
+    wolfSide: true,
   );
 
   static const RoleDefinition infectiousWolf = RoleDefinition(
@@ -248,6 +258,7 @@ abstract final class Roles {
     team: RoleTeam.werewolves,
     emoji: '🩸',
     actsAtNight: true,
+    wolfSide: true,
   );
 
   // --- Solo ----------------------------------------------------------------
@@ -258,6 +269,7 @@ abstract final class Roles {
     team: RoleTeam.solo,
     emoji: '🌕',
     actsAtNight: true,
+    wolfSide: true,
   );
 
   static const RoleDefinition piper = RoleDefinition(

@@ -9,6 +9,8 @@ import '../../history/presentation/history_screen.dart';
 import '../../nights/domain/night_entities.dart';
 import '../../nights/presentation/controllers/nights_providers.dart';
 import '../../nights/presentation/night_screen.dart';
+import '../../victory/domain/victory_entities.dart';
+import '../../victory/presentation/victory_screen.dart';
 import '../domain/game_entities.dart';
 import '../domain/role.dart';
 import 'controllers/game_board_controller.dart';
@@ -106,6 +108,10 @@ class _GameDetailView extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
         children: [
+          if (game.isFinished) ...[
+            _VictoryBanner(snapshot: snapshot),
+            const SizedBox(height: 16),
+          ],
           _BoardSummary(snapshot: snapshot),
           if (snapshot.couples.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -134,11 +140,14 @@ class _GameDetailView extends ConsumerWidget {
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _startNight(context, ref),
-        icon: const Icon(Icons.nightlight_round),
-        label: const Text('Nouvelle nuit'),
-      ),
+      // A finished game is a read-only archive: no round can be opened on it.
+      floatingActionButton: game.isFinished
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _startNight(context, ref),
+              icon: const Icon(Icons.nightlight_round),
+              label: const Text('Nouvelle nuit'),
+            ),
     );
   }
 
@@ -274,6 +283,62 @@ class _GameDetailView extends ConsumerWidget {
 }
 
 enum _MenuAction { toggleStatus, export, toggleArchive }
+
+/// Shown at the top of a finished game: which camp won, and why.
+class _VictoryBanner extends StatelessWidget {
+  const _VictoryBanner({required this.snapshot});
+
+  final GameSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final game = snapshot.game;
+    final camp = VictoryCamp.byId(game.winnerCampId);
+
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => VictoryScreen(gameId: game.id),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Text(camp.emoji, style: const TextStyle(fontSize: 32)),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      game.hasWinner
+                          ? '${camp.label} l\'emporte'
+                          : 'Partie terminée',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    if (game.winnerReason != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          game.winnerReason!,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _BoardSummary extends StatelessWidget {
   const _BoardSummary({required this.snapshot});

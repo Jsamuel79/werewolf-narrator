@@ -13,6 +13,14 @@ class Games extends Table {
   BoolColumn get isArchived => boolean().withDefault(const Constant(false))();
   TextColumn get notes => text().nullable()();
 
+  /// Camp that won, once [status] is `finished` — see `VictoryCamp`.
+  /// Free-form text on purpose: a future solo role wins under its own role id
+  /// without a migration.
+  TextColumn get winnerCampId => text().nullable()();
+
+  /// The sentence explaining that win, as the narrator read it out.
+  TextColumn get winnerReason => text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

@@ -113,6 +113,13 @@ lib/
     │           ├── action_entry_dialog.dart
     │           └── night_outcome_view.dart
     │
+    ├── victory/
+    │   ├── domain/
+    │   │   ├── victory_entities.dart         # VictoryCamp, VictoryResult
+    │   │   └── victory_engine.dart           # ⚖️ règles de fin de partie (pur)
+    │   ├── data/victory_recorder.dart        # évalue + clôt la partie en base
+    │   └── presentation/victory_screen.dart
+    │
     ├── history/
     │   └── presentation/history_screen.dart
     │
@@ -140,7 +147,7 @@ garde les promesses de sécurité (pas de permission réseau, pas de socket).
 
 ---
 
-## 3. Schéma de base de données (Drift, `schemaVersion = 1`)
+## 3. Schéma de base de données (Drift, `schemaVersion = 2`)
 
 ### `games`
 | Colonne | Type | Notes |
@@ -152,6 +159,8 @@ garde les promesses de sécurité (pas de permission réseau, pas de socket).
 | `status` | TEXT | `setup` \| `inProgress` \| `finished` |
 | `isArchived` | BOOL | défaut `false` |
 | `notes` | TEXT? | notes libres du narrateur |
+| `winnerCampId` | TEXT? | *(v2)* camp vainqueur — `village`, `werewolves`, `lovers`, `nobody`, `lastStanding` ou l'id d'un rôle solo |
+| `winnerReason` | TEXT? | *(v2)* la phrase lue par le narrateur à l'annonce du résultat |
 
 ### `players`
 | Colonne | Type | Notes |
@@ -198,6 +207,16 @@ vote du village qui la suit. Choix documenté en §7 (décision D2).
 
 Les clés étrangères sont activées via `PRAGMA foreign_keys = ON`.
 
+### Migrations
+
+`onUpgrade` n'ajoute que des colonnes et des tables ; aucune table n'est jamais recréée,
+donc une partie enregistrée par une version antérieure survit à la mise à jour.
+
+| Version | Contenu |
+|---------|---------|
+| 1 | schéma initial du MVP (4 tables) |
+| 2 | `games.winnerCampId`, `games.winnerReason` — mémorisation du camp vainqueur |
+
 ---
 
 ## 4. Catalogue de rôles (extensible)
@@ -229,6 +248,48 @@ Fonction **pure** (aucune I/O), donc entièrement testable :
    révélations de la Voyante, joueurs charmés.
 5. Le repository applique ensuite l'outcome : `isAlive`, `deathNightNumber`,
    `deathCause`, `coupledWithPlayerId`, `isCharmed`.
+
+---
+
+## 5 bis. Moteur de fin de partie *(v2)*
+
+`VictoryEngine.evaluate(players) → VictoryResult?` — fonction **pure**, sans base ni
+widget, testée seule.
+
+Le moteur est une **liste ordonnée de règles** (`VictoryRule`) plutôt qu'une cascade de
+`if` : ajouter un rôle solo avec sa propre condition de victoire = ajouter un objet à la
+liste. La position dans la liste *est* la priorité.
+
+| Ordre | Règle | Condition | Vainqueur |
+|-------|-------|-----------|-----------|
+| 1 | `nobodyLeft` | plus aucun survivant | Personne (la partie s'arrête quand même) |
+| 2 | `mixedLovers` | les 2 derniers survivants sont un couple de camps différents | Les Amoureux |
+| 3 | `angel` | l'Ange a été éliminé au **tour 1** | L'Ange, seul |
+| 4 | `piper` | le Joueur de Flûte est vivant et tous les autres survivants sont charmés | Le Joueur de Flûte |
+| 5 | `soloSurvivor` | un unique survivant, de camp `solo` | Ce rôle (Loup-Garou Blanc…) |
+| 6 | `village` | plus aucun joueur « côté loup » vivant | Le Village |
+| 7 | `werewolves` | `survivants non-loups <= loups vivants` et au moins un loup vivant | Les Loups-Garous |
+| 8 | `lastStanding` | filet de sécurité : un seul survivant qu'aucune règle ci-dessus ne couvre | Ce survivant |
+
+« Côté loup » = `RoleDefinition.wolfSide`, un drapeau ajouté au catalogue : il est vrai
+pour le Loup-Garou, le Grand Méchant Loup, l'Infect Père des Loups **et** le Loup-Garou
+Blanc, qui joue seul mais chasse avec la meute — le Village ne gagne qu'une fois qu'il est
+mort lui aussi.
+
+### Quand la vérification se déclenche
+
+`VictoryRecorder.refresh(gameId)` est appelé :
+
+- après la résolution d'une nuit (`DriftNightsRepository.resolveNight`) ;
+- après **toute** écriture sur les joueurs (`DriftGamesRepository.savePlayers`), ce qui
+  couvre le vote du village, le tir du Chasseur et les retouches manuelles du narrateur ;
+- après le retrait d'un joueur de la table.
+
+Quand une règle se déclenche, la partie passe en `finished`, le camp et sa justification
+sont écrits sur la ligne `games`, l'écran de partie affiche la bannière de victoire et le
+bouton « Nouvelle nuit » disparaît. `startNight` refuse d'ouvrir un tour sur une partie
+terminée. Reprendre la partie à la main (menu « Reprendre la partie ») efface le
+vainqueur mémorisé : il sera recalculé au prochain mouvement du plateau.
 
 ---
 
@@ -274,6 +335,9 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D9** | L'en-tête de l'export est passé en **AAD** au chiffrement GCM | Sans cela, un attaquant pourrait réécrire `iterations` ou `version` sans invalider le tag. L'AAD est reconstruit champ par champ, pas depuis le texte JSON, pour qu'un reformatage du fichier ne casse pas un import légitime. |
 | **D10** | L'import **régénère tous les identifiants** | Permet d'importer deux fois le même fichier, et garantit qu'un import n'écrase jamais une partie déjà présente. Les couples, les actions et les bilans stockés sont remappés en conséquence. |
 | **D11** | Le Capitaine, les charmes et les rôles modifiés sont appliqués par `NightResolver.apply` | Une seule fonction décrit l'effet d'un tour sur le plateau ; le repository n'est plus qu'une traduction en SQL. |
+| **D13** | La détection de victoire est une **liste de règles ordonnée**, pas un `if/else` village-vs-loups | Les rôles solitaires (Loup Blanc, Joueur de Flûte, Ange) ont chacun leur propre condition ; les ajouter ne doit pas rouvrir le moteur. La priorité des Amoureux mixtes est simplement leur position dans la liste. |
+| **D14** | Une partie **sans aucun Loup-Garou** se termine dès la première vérification par une victoire du Village | Le brief demande de ne jamais laisser tourner une partie qui ne peut plus se terminer. La règle officielle est « le Village gagne dès que le dernier loup est éliminé » : avec zéro loup, cette condition est vraie d'emblée. Le libellé annoncé est alors « Aucun Loup-Garou ne menace le village », pour ne pas laisser croire qu'un loup a été tué. L'écran de création affiche en plus un avertissement quand la table ne compte aucun loup — la partie n'est jamais bloquée, mais le narrateur est prévenu. |
+| **D15** | `VictoryRecorder` (couche `data` de `victory`) est appelé par les repositories `games` et `nights` | Exception assumée à « aucun repository ne dépend d'une autre feature » : la fin de partie est une règle transverse qui doit s'appliquer **quel que soit** le chemin d'écriture. Les dépendances restent à sens unique (`games`/`nights` → `victory`), sans cycle, et le moteur reste pur et testable seul. |
 | **D12** | Les tests de widgets démontent l'arbre **dans** le corps du test | Drift planifie un timer à durée nulle en annulant un stream ; le laisser au teardown fait échouer l'invariant « A Timer is still pending ». Voir SETUP_LOG.md, problème n°2. |
 
 ---
@@ -317,3 +381,45 @@ Hors périmètre du MVP, notées ici pour ne pas être oubliées :
 - Rappel des pouvoirs passifs au bon moment (Ancien, Idiot du village, Chevalier).
 - Signature de release avec un keystore dédié (aujourd'hui la clé de debug).
 - Sauvegarde chiffrée automatique après chaque nuit.
+
+---
+
+## 10. Plan de la version 2.0
+
+La V2 corrige un bug bloquant (aucune détection de fin de partie) et refond le tour de
+jeu en un parcours guidé : **nuit en cartes swipables → phase de jour → vote → victoire**.
+
+### 10.1 Ordre de livraison
+
+| # | Lot | Contenu | Migration |
+|---|-----|---------|-----------|
+| **V2-1** | 🐞 Détection de victoire | moteur de règles extensible, camp vainqueur persisté, écran de victoire, plus aucune action quand la partie est finie | `schemaVersion` 1 → 2 |
+| **V2-2** | 🎲 Distribution aléatoire | table de correspondance loups/joueurs, rôles uniques, seuils par rôle | — |
+| **V2-3** | ✅ Composition de partie | choix des rôles autorisés, réutilisé par le randomiseur et par « Nouvelle partie » | 2 → 3 |
+| **V2-4** | ⭐ Capitaine | élection unique, vote double, mort → désignation ou réélection | — |
+| **V2-5** | 🃏 Nuit en cartes | séquence ordonnée calculée, pile de cartes swipables, une carte par rôle actif | 3 → 4 |
+| **V2-6** | ☀️ Phase de jour | réveil, élection, chronomètre, vote pondéré, conséquences | — |
+| **V2-7** | 🏆 Victoire & rejouer | écran de victoire complet, « Nouvelle partie » avec les mêmes joueurs | — |
+
+### 10.2 Nouvelles features (mêmes couches que `games` / `nights`)
+
+```
+lib/features/
+├── victory/
+│   ├── domain/  victory_entities.dart · victory_engine.dart (pur, extensible)
+│   ├── data/    victory_recorder.dart  (écrit le camp vainqueur sur `games`)
+│   └── presentation/ victory_screen.dart
+└── day/
+    ├── domain/  day_entities.dart · vote_resolver.dart (vote pondéré + égalité)
+    └── presentation/ day_screen.dart + cartes du jour
+```
+
+### 10.3 Migrations prévues
+
+- **v2** — `games.winnerCampId`, `games.winnerReason` (camp vainqueur mémorisé).
+- **v3** — table `game_role_selections` (rôles autorisés pour une partie).
+- **v4** — `night_actions.phase` (nuit/jour, pour résoudre les deux phases séparément),
+  `nights.dayResolvedAt`, `nights.daySummaryJson`.
+
+Chaque étape ajoute une branche dans `onUpgrade` ; aucune table n'est recréée, aucune
+partie existante n'est perdue.
