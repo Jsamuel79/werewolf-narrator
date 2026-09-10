@@ -9,15 +9,23 @@ class GameArchive {
     required this.players,
     required this.nights,
     required this.exportedAt,
+    this.allowedRoleIds = const {},
   });
 
   /// Bumped only if the shape below changes in a way older builds cannot read.
-  static const int schemaVersion = 1;
+  ///
+  /// 2 — carries the winning camp, the roles allowed in the game, the day half
+  /// of each round, and the phase of each action. A version 1 file still reads:
+  /// every added field is optional.
+  static const int schemaVersion = 2;
 
   final Game game;
   final List<Player> players;
   final List<NightDetail> nights;
   final DateTime exportedAt;
+
+  /// Roles allowed in this game; empty when it never had a composition.
+  final Set<String> allowedRoleIds;
 
   Map<String, dynamic> toJson() => {
     'schemaVersion': schemaVersion,
@@ -30,7 +38,10 @@ class GameArchive {
       'status': game.status.id,
       'isArchived': game.isArchived,
       'notes': game.notes,
+      'winnerCampId': game.winnerCampId,
+      'winnerReason': game.winnerReason,
     },
+    'allowedRoleIds': allowedRoleIds.toList(),
     'players': [
       for (final player in players)
         {
@@ -55,11 +66,14 @@ class GameArchive {
           'createdAt': detail.night.createdAt.toIso8601String(),
           'resolvedAt': detail.night.resolvedAt?.toIso8601String(),
           'outcome': detail.night.outcome?.toJson(),
+          'dayResolvedAt': detail.night.dayResolvedAt?.toIso8601String(),
+          'dayOutcome': detail.night.dayOutcome?.toJson(),
           'actions': [
             for (final action in detail.actions)
               {
                 'id': action.id,
                 'type': action.typeId,
+                'phase': NightAction.phaseId(action.phase),
                 'actorPlayerId': action.actorPlayerId,
                 'targetPlayerId': action.targetPlayerId,
                 'secondaryTargetPlayerId': action.secondaryTargetPlayerId,
@@ -84,6 +98,8 @@ class GameArchive {
       status: GameStatus.fromId(gameJson['status'] as String? ?? 'inProgress'),
       isArchived: gameJson['isArchived'] as bool? ?? false,
       notes: gameJson['notes'] as String?,
+      winnerCampId: gameJson['winnerCampId'] as String?,
+      winnerReason: gameJson['winnerReason'] as String?,
     );
 
     final players = [
@@ -113,6 +129,7 @@ class GameArchive {
           final n = raw as Map<String, dynamic>;
           final nightId = n['id'] as String;
           final outcome = n['outcome'] as Map<String, dynamic>?;
+          final dayOutcome = n['dayOutcome'] as Map<String, dynamic>?;
           return NightDetail(
             night: Night(
               id: nightId,
@@ -123,6 +140,12 @@ class GameArchive {
                   ? null
                   : DateTime.parse(n['resolvedAt'] as String),
               outcome: outcome == null ? null : NightOutcome.fromJson(outcome),
+              dayResolvedAt: n['dayResolvedAt'] == null
+                  ? null
+                  : DateTime.parse(n['dayResolvedAt'] as String),
+              dayOutcome: dayOutcome == null
+                  ? null
+                  : NightOutcome.fromJson(dayOutcome),
             ),
             actions: [
               for (final rawAction in (n['actions'] as List<dynamic>? ?? []))
@@ -133,6 +156,7 @@ class GameArchive {
                     nightId: nightId,
                     gameId: gameId,
                     typeId: a['type'] as String,
+                    phase: NightAction.phaseFromId(a['phase'] as String?),
                     actorPlayerId: a['actorPlayerId'] as String?,
                     targetPlayerId: a['targetPlayerId'] as String?,
                     secondaryTargetPlayerId:
@@ -156,6 +180,10 @@ class GameArchive {
       exportedAt: DateTime.parse(
         json['exportedAt'] as String? ?? DateTime.now().toIso8601String(),
       ),
+      allowedRoleIds:
+          (json['allowedRoleIds'] as List<dynamic>? ?? const [])
+              .cast<String>()
+              .toSet(),
     );
   }
 }

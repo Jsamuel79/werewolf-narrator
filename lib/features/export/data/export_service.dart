@@ -72,6 +72,10 @@ class ExportService {
               ..orderBy([(a) => OrderingTerm.asc(a.orderIndex)]))
             .get();
 
+    final composition = await (_db.select(
+      _db.gameRoleSelections,
+    )..where((s) => s.gameId.equals(gameId))).get();
+
     final actionsByNight = <String, List<NightAction>>{};
     for (final action in actions) {
       actionsByNight.putIfAbsent(action.nightId, () => []).add(
@@ -90,6 +94,7 @@ class ExportService {
           ),
       ],
       exportedAt: _now(),
+      allowedRoleIds: composition.map((row) => row.roleId).toSet(),
     );
   }
 
@@ -156,6 +161,8 @@ class ExportService {
       status: archive.game.status,
       isArchived: archive.game.isArchived,
       notes: archive.game.notes,
+      winnerCampId: archive.game.winnerCampId,
+      winnerReason: archive.game.winnerReason,
     );
 
     await _db.transaction(() async {
@@ -170,8 +177,21 @@ class ExportService {
               status: archive.game.status.id,
               isArchived: Value(archive.game.isArchived),
               notes: Value(archive.game.notes),
+              winnerCampId: Value(archive.game.winnerCampId),
+              winnerReason: Value(archive.game.winnerReason),
             ),
           );
+
+      for (final roleId in archive.allowedRoleIds) {
+        await _db
+            .into(_db.gameRoleSelections)
+            .insert(
+              GameRoleSelectionsCompanion.insert(
+                gameId: newGameId,
+                roleId: roleId,
+              ),
+            );
+      }
 
       for (final player in archive.players) {
         await _db
@@ -210,6 +230,10 @@ class ExportService {
                 summaryJson: Value(
                   _remapOutcome(detail.night.outcome, playerIds),
                 ),
+                dayResolvedAt: Value(detail.night.dayResolvedAt),
+                daySummaryJson: Value(
+                  _remapOutcome(detail.night.dayOutcome, playerIds),
+                ),
               ),
             );
 
@@ -224,6 +248,7 @@ class ExportService {
                   type: action.typeId,
                   orderIndex: action.orderIndex,
                   createdAt: action.createdAt,
+                  phase: Value(NightAction.phaseId(action.phase)),
                   actorPlayerId: Value(playerIds[action.actorPlayerId]),
                   targetPlayerId: Value(playerIds[action.targetPlayerId]),
                   secondaryTargetPlayerId: Value(
@@ -271,6 +296,7 @@ class ExportService {
           ),
       ],
       newCaptainId: remap(outcome.newCaptainId),
+      captainDiedId: remap(outcome.captainDiedId),
       notes: outcome.notes,
     );
     return jsonEncode(remapped.toJson());

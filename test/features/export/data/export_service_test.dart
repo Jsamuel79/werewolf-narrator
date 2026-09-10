@@ -7,6 +7,7 @@ import 'package:werewolf_narrator/core/database/app_database.dart';
 import 'package:werewolf_narrator/core/errors/app_exception.dart';
 import 'package:werewolf_narrator/core/security/crypto_service.dart';
 import 'package:werewolf_narrator/features/export/data/export_service.dart';
+import 'package:werewolf_narrator/features/export/domain/game_archive.dart';
 import 'package:werewolf_narrator/features/games/data/games_repository_impl.dart';
 import 'package:werewolf_narrator/features/games/domain/game_entities.dart';
 import 'package:werewolf_narrator/features/games/domain/games_repository.dart';
@@ -249,6 +250,108 @@ void main() {
         throwsA(isA<ImportException>()),
       );
       expect(await games.watchGames(archived: false).first, hasLength(1));
+    });
+  });
+
+  group('version 2 payload', () {
+    test('carries the winner, the composition and both halves of a round',
+        () async {
+      await games.saveComposition(
+        gameId: game.id,
+        roleIds: const {'villager', 'werewolf', 'seer'},
+      );
+      await games.setStatus(gameId: game.id, status: GameStatus.finished);
+
+      final archive = await service.buildArchive(game.id);
+      expect(archive.allowedRoleIds, containsAll(<String>['seer', 'werewolf']));
+
+      final restored = GameArchive.fromJson(archive.toJson());
+      expect(restored.allowedRoleIds, archive.allowedRoleIds);
+      expect(
+        restored.nights.first.night.dayResolvedAt,
+        archive.nights.first.night.dayResolvedAt,
+      );
+      expect(
+        restored.nights.first.actions.first.phase,
+        archive.nights.first.actions.first.phase,
+      );
+    });
+
+    test('an import restores the winning camp and the composition', () async {
+      final wolf = (await games.loadGame(game.id))!
+          .players
+          .firstWhere((p) => p.roleId == 'werewolf');
+      await games.saveComposition(
+        gameId: game.id,
+        roleIds: const {'villager', 'werewolf', 'seer'},
+      );
+      // Killing the last wolf closes the game with a village victory.
+      await games.savePlayers([wolf.copyWith(isAlive: false)]);
+
+      final envelope = await service.exportGame(
+        gameId: game.id,
+        password: 'motdepasse-solide',
+      );
+      final imported = await service.importGame(
+        envelopeJson: await envelope.file.readAsString(),
+        password: 'motdepasse-solide',
+      );
+
+      expect(imported.status, GameStatus.finished);
+      expect(imported.winnerCampId, 'village');
+      expect(imported.winnerReason, isNotNull);
+      expect(
+        await games.loadComposition(imported.id),
+        containsAll(<String>['seer', 'werewolf', 'villager']),
+      );
+    });
+
+    test('a version 1 file still reads, with the new fields empty', () {
+      final legacy = {
+        'schemaVersion': 1,
+        'exportedAt': '2026-05-01T20:30:00.000',
+        'game': {
+          'id': 'g1',
+          'name': 'Vieille partie',
+          'createdAt': '2026-05-01T20:00:00.000',
+          'updatedAt': '2026-05-01T20:30:00.000',
+          'status': 'inProgress',
+          'isArchived': false,
+          'notes': null,
+        },
+        'players': [
+          {
+            'id': 'p1',
+            'name': 'Alice',
+            'roleId': 'villager',
+            'seatOrder': 0,
+            'isAlive': true,
+          },
+        ],
+        'nights': [
+          {
+            'id': 'n1',
+            'nightNumber': 1,
+            'createdAt': '2026-05-01T20:10:00.000',
+            'resolvedAt': '2026-05-01T20:20:00.000',
+            'actions': [
+              {
+                'id': 'a1',
+                'type': 'werewolfVictim',
+                'targetPlayerId': 'p1',
+                'orderIndex': 0,
+                'createdAt': '2026-05-01T20:15:00.000',
+              },
+            ],
+          },
+        ],
+      };
+
+      final archive = GameArchive.fromJson(legacy);
+      expect(archive.game.winnerCampId, isNull);
+      expect(archive.allowedRoleIds, isEmpty);
+      expect(archive.nights.single.night.dayResolvedAt, isNull);
+      expect(archive.nights.single.actions.single.phase, ActionPhase.night);
     });
   });
 }
