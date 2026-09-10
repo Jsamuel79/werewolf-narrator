@@ -8,8 +8,10 @@ import 'package:werewolf_narrator/core/database/app_database.dart';
 import 'package:werewolf_narrator/core/providers/core_providers.dart';
 import 'package:werewolf_narrator/features/games/data/games_repository_impl.dart';
 import 'package:werewolf_narrator/features/games/domain/games_repository.dart';
+import 'package:werewolf_narrator/features/games/domain/role_dealer.dart';
 import 'package:werewolf_narrator/features/games/presentation/game_setup_screen.dart';
 import 'package:werewolf_narrator/features/games/presentation/home_screen.dart';
+import 'package:werewolf_narrator/features/games/presentation/widgets/role_badge.dart';
 
 void main() {
   late AppDatabase db;
@@ -176,6 +178,39 @@ void main() {
       expect(stored, hasLength(1));
       expect(stored.single.name, 'Partie test');
       expect(await db.select(db.players).get(), hasLength(3));
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('deals every seat at random on demand', (tester) async {
+      await tester.pumpWidget(wrap(const GameSetupScreen()));
+      await tester.pumpAndSettle();
+
+      for (final name in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']) {
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Ajouter un joueur'),
+          name,
+        );
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+
+      // Everybody starts as a plain villager, so the warning shows.
+      expect(find.textContaining('Aucun Loup-Garou'), findsOneWidget);
+
+      await tester.tap(find.text('Distribution aléatoire'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Aucun Loup-Garou'), findsNothing);
+      // Eight players get the two wolves the rulebook asks for, and the
+      // « suggested » nudge disappears because the table now matches it.
+      expect(
+        find.text('🐺 ${RoleDealer.werewolfCountFor(8)} loups'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('suggéré'), findsNothing);
+      expect(find.byType(RoleBadge), findsWidgets);
 
       await disposeTree(tester);
     });

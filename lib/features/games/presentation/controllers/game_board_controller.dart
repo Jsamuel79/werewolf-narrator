@@ -1,7 +1,10 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/game_entities.dart';
 import '../../domain/games_repository.dart';
+import '../../domain/role_dealer.dart';
 import 'games_providers.dart';
 
 /// Manual edits on the player board, outside of the night flow.
@@ -30,6 +33,23 @@ class GameBoardController {
 
   Future<void> setRole({required Player player, required String roleId}) {
     return _repository.savePlayers([player.copyWith(roleId: roleId)]);
+  }
+
+  /// Redeals every seat at random, before the first night is played.
+  ///
+  /// A proposal, not a lock: each assignment stays editable afterwards.
+  Future<void> randomizeRoles({
+    required GameSnapshot snapshot,
+    Random? random,
+  }) {
+    final roleIds = RoleDealer.deal(
+      playerCount: snapshot.players.length,
+      random: random,
+    );
+    return _repository.savePlayers([
+      for (var i = 0; i < snapshot.players.length; i++)
+        snapshot.players[i].copyWith(roleId: roleIds[i]),
+    ]);
   }
 
   /// There is at most one captain, so electing one demotes the previous one.

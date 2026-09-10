@@ -102,6 +102,18 @@ class _GameSetupScreenState extends ConsumerState<GameSetupScreen> {
             ),
           ),
           _SetupSummary(state: state),
+          if (state.players.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: controller.randomizeRoles,
+                  icon: const Icon(Icons.casino_outlined),
+                  label: const Text('Distribution aléatoire'),
+                ),
+              ),
+            ),
           const Divider(),
           Expanded(
             child: state.players.isEmpty

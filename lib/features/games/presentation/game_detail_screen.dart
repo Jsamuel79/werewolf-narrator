@@ -57,6 +57,9 @@ class _GameDetailView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final game = snapshot.game;
+    // Dealing cards again only makes sense before the first round is opened.
+    final nights = ref.watch(gameNightsProvider(game.id)).value ?? const [];
+    final canDeal = nights.isEmpty && !game.isFinished;
 
     return Scaffold(
       appBar: AppBar(
@@ -122,10 +125,21 @@ class _GameDetailView extends ConsumerWidget {
           const SizedBox(height: 20),
           _SectionTitle(
             title: 'Joueurs',
-            trailing: TextButton.icon(
-              onPressed: () => _addPlayer(context, ref),
-              icon: const Icon(Icons.person_add_alt, size: 18),
-              label: const Text('Ajouter'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (canDeal)
+                  TextButton.icon(
+                    onPressed: () => _randomizeRoles(context, ref),
+                    icon: const Icon(Icons.casino_outlined, size: 18),
+                    label: const Text('Distribuer'),
+                  ),
+                TextButton.icon(
+                  onPressed: () => _addPlayer(context, ref),
+                  icon: const Icon(Icons.person_add_alt, size: 18),
+                  label: const Text('Ajouter'),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 4),
@@ -240,6 +254,38 @@ class _GameDetailView extends ConsumerWidget {
           () => controller.removePlayer(snapshot: snapshot, player: player),
         );
     }
+  }
+
+  Future<void> _randomizeRoles(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Distribution aléatoire'),
+        content: Text(
+          'Les rôles des ${snapshot.players.length} joueurs vont être '
+          'retirés au sort. Vous pourrez encore les modifier un par un '
+          'avant de commencer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Distribuer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    await runGuarded(
+      context,
+      () => ref
+          .read(gameBoardControllerProvider)
+          .randomizeRoles(snapshot: snapshot),
+    );
   }
 
   Future<void> _addPlayer(BuildContext context, WidgetRef ref) async {

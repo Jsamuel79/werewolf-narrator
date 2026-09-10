@@ -25,6 +25,8 @@ class RoleDefinition {
     this.actsAtNight = false,
     this.firstNightOnly = false,
     this.wolfSide = false,
+    this.dealCopies = 1,
+    this.minPlayers = 0,
   });
 
   final String id;
@@ -48,6 +50,23 @@ class RoleDefinition {
   /// than testing role ids one by one.
   final bool wolfSide;
 
+  /// How many copies the random dealer hands out when the role is in play.
+  ///
+  /// `0` means « as many as needed »: the Villager fills the empty seats and
+  /// the Werewolf fills the pack. The Two Sisters need 2 copies and the Three
+  /// Brothers 3 — they are pointless alone.
+  final int dealCopies;
+
+  /// Smallest table the random dealer will put this role on.
+  ///
+  /// A Cupid around four players makes the game unplayable; below the
+  /// threshold the role stays available for a manual assignment, the dealer
+  /// simply never picks it.
+  final int minPlayers;
+
+  /// A role dealt at most once — what the UI calls a « rôle unique ».
+  bool get isUnique => dealCopies == 1;
+
   @override
   String toString() => 'RoleDefinition($id)';
 }
@@ -60,6 +79,7 @@ abstract final class Roles {
     description: 'Aucun pouvoir. Doit démasquer les loups par le débat.',
     team: RoleTeam.village,
     emoji: '🧑‍🌾',
+    dealCopies: 0,
   );
 
   static const RoleDefinition seer = RoleDefinition(
@@ -69,6 +89,7 @@ abstract final class Roles {
     team: RoleTeam.village,
     emoji: '🔮',
     actsAtNight: true,
+    minPlayers: 4,
   );
 
   static const RoleDefinition witch = RoleDefinition(
@@ -78,6 +99,7 @@ abstract final class Roles {
     team: RoleTeam.village,
     emoji: '🧪',
     actsAtNight: true,
+    minPlayers: 5,
   );
 
   static const RoleDefinition hunter = RoleDefinition(
@@ -86,6 +108,7 @@ abstract final class Roles {
     description: 'En mourant, élimine immédiatement un joueur de son choix.',
     team: RoleTeam.village,
     emoji: '🏹',
+    minPlayers: 6,
   );
 
   static const RoleDefinition cupid = RoleDefinition(
@@ -96,6 +119,7 @@ abstract final class Roles {
     emoji: '💘',
     actsAtNight: true,
     firstNightOnly: true,
+    minPlayers: 6,
   );
 
   static const RoleDefinition littleGirl = RoleDefinition(
@@ -105,6 +129,7 @@ abstract final class Roles {
     team: RoleTeam.village,
     emoji: '👧',
     actsAtNight: true,
+    minPlayers: 8,
   );
 
   static const RoleDefinition thief = RoleDefinition(
@@ -115,6 +140,7 @@ abstract final class Roles {
     emoji: '🎭',
     actsAtNight: true,
     firstNightOnly: true,
+    minPlayers: 9,
   );
 
   static const RoleDefinition guard = RoleDefinition(
@@ -124,6 +150,7 @@ abstract final class Roles {
     team: RoleTeam.village,
     emoji: '🛡️',
     actsAtNight: true,
+    minPlayers: 8,
   );
 
   static const RoleDefinition ancient = RoleDefinition(
@@ -132,6 +159,7 @@ abstract final class Roles {
     description: 'Survit à la première attaque des Loups-Garous.',
     team: RoleTeam.village,
     emoji: '👴',
+    minPlayers: 9,
   );
 
   static const RoleDefinition scapegoat = RoleDefinition(
@@ -140,6 +168,7 @@ abstract final class Roles {
     description: "En cas d'égalité au vote, c'est lui qui est éliminé.",
     team: RoleTeam.village,
     emoji: '🐐',
+    minPlayers: 10,
   );
 
   static const RoleDefinition villageIdiot = RoleDefinition(
@@ -148,6 +177,7 @@ abstract final class Roles {
     description: 'Désigné par le vote, il survit mais perd son droit de vote.',
     team: RoleTeam.village,
     emoji: '🤡',
+    minPlayers: 9,
   );
 
   static const RoleDefinition twoSisters = RoleDefinition(
@@ -158,6 +188,8 @@ abstract final class Roles {
     emoji: '👭',
     actsAtNight: true,
     firstNightOnly: true,
+    dealCopies: 2,
+    minPlayers: 9,
   );
 
   static const RoleDefinition threeBrothers = RoleDefinition(
@@ -168,6 +200,8 @@ abstract final class Roles {
     emoji: '👬',
     actsAtNight: true,
     firstNightOnly: true,
+    dealCopies: 3,
+    minPlayers: 11,
   );
 
   static const RoleDefinition fox = RoleDefinition(
@@ -177,6 +211,7 @@ abstract final class Roles {
     team: RoleTeam.village,
     emoji: '🦊',
     actsAtNight: true,
+    minPlayers: 9,
   );
 
   static const RoleDefinition knight = RoleDefinition(
@@ -185,6 +220,7 @@ abstract final class Roles {
     description: 'Dévoré, il contamine le premier loup à sa gauche.',
     team: RoleTeam.village,
     emoji: '⚔️',
+    minPlayers: 10,
   );
 
   static const RoleDefinition bearShowman = RoleDefinition(
@@ -193,6 +229,7 @@ abstract final class Roles {
     description: "L'ours grogne si un voisin direct est un Loup-Garou.",
     team: RoleTeam.village,
     emoji: '🐻',
+    minPlayers: 10,
   );
 
   static const RoleDefinition stutteringJudge = RoleDefinition(
@@ -201,6 +238,7 @@ abstract final class Roles {
     description: 'Peut provoquer un second vote, une fois dans la partie.',
     team: RoleTeam.village,
     emoji: '⚖️',
+    minPlayers: 10,
   );
 
   static const RoleDefinition ravenAccuser = RoleDefinition(
@@ -210,6 +248,7 @@ abstract final class Roles {
     team: RoleTeam.village,
     emoji: '🐦‍⬛',
     actsAtNight: true,
+    minPlayers: 10,
   );
 
   static const RoleDefinition servant = RoleDefinition(
@@ -218,6 +257,7 @@ abstract final class Roles {
     description: "Prend la place et le rôle d'un joueur qui vient de mourir.",
     team: RoleTeam.village,
     emoji: '🙇',
+    minPlayers: 10,
   );
 
   static const RoleDefinition wildChild = RoleDefinition(
@@ -228,6 +268,7 @@ abstract final class Roles {
     emoji: '🧒',
     actsAtNight: true,
     firstNightOnly: true,
+    minPlayers: 9,
   );
 
   // --- Werewolves ----------------------------------------------------------
@@ -239,6 +280,7 @@ abstract final class Roles {
     emoji: '🐺',
     actsAtNight: true,
     wolfSide: true,
+    dealCopies: 0,
   );
 
   static const RoleDefinition bigBadWolf = RoleDefinition(
@@ -249,6 +291,7 @@ abstract final class Roles {
     emoji: '🐺',
     actsAtNight: true,
     wolfSide: true,
+    minPlayers: 10,
   );
 
   static const RoleDefinition infectiousWolf = RoleDefinition(
@@ -259,6 +302,7 @@ abstract final class Roles {
     emoji: '🩸',
     actsAtNight: true,
     wolfSide: true,
+    minPlayers: 12,
   );
 
   // --- Solo ----------------------------------------------------------------
@@ -270,6 +314,7 @@ abstract final class Roles {
     emoji: '🌕',
     actsAtNight: true,
     wolfSide: true,
+    minPlayers: 12,
   );
 
   static const RoleDefinition piper = RoleDefinition(
@@ -279,6 +324,7 @@ abstract final class Roles {
     team: RoleTeam.solo,
     emoji: '🎶',
     actsAtNight: true,
+    minPlayers: 12,
   );
 
   static const RoleDefinition angel = RoleDefinition(
@@ -287,6 +333,7 @@ abstract final class Roles {
     description: "Gagne s'il est éliminé dès le premier tour de jeu.",
     team: RoleTeam.solo,
     emoji: '👼',
+    minPlayers: 9,
   );
 
   /// Fallback for a role id that is not (or no longer) in the catalogue.

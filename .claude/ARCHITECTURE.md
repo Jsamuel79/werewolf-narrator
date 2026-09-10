@@ -251,6 +251,69 @@ Fonction **pure** (aucune I/O), donc entièrement testable :
 
 ---
 
+## 4 bis. Distribution aléatoire des rôles *(v2)*
+
+`RoleDealer.deal(playerCount, allowedRoleIds, random) → List<String>` — une fonction
+**pure** de `games/domain`, un rôle par siège, mélangé. Le bouton « Distribution
+aléatoire » n'est qu'un appel de plus : rien n'est verrouillé, chaque assignation reste
+modifiable à la main, et re-cliquer redistribue tout depuis zéro.
+
+### Nombre de Loups-Garous par taille de table
+
+| Joueurs | Loups |
+|---------|-------|
+| 3 – 6 | 1 |
+| 7 – 9 | 2 |
+| 10 – 12 | 3 |
+| 13 – 15 | 4 |
+| 16 – 18 | 5 |
+| 19 et + | 6 |
+
+La meute est en plus plafonnée à `(n-1) ~/ 2` : les loups ne peuvent jamais commencer une
+partie en position de victoire immédiate. Cette table remplace l'ancienne heuristique
+`(n/4).round()` de l'écran de création, qui vit maintenant dans le même endroit.
+
+### Seuils par rôle
+
+Chaque `RoleDefinition` porte deux champs de distribution :
+
+- `dealCopies` — nombre d'exemplaires distribués (`0` = « autant que nécessaire », pour le
+  Villageois et le Loup-Garou ; `2` pour les Deux Sœurs, `3` pour les Trois Frères ; `1`
+  pour tous les autres, d'où `isUnique`) ;
+- `minPlayers` — table minimale en dessous de laquelle le distributeur ignore le rôle.
+
+| Seuil | Rôles |
+|-------|-------|
+| 4 | Voyante |
+| 5 | Sorcière |
+| 6 | Chasseur, Cupidon |
+| 8 | Salvateur, Petite Fille |
+| 9 | Voleur, Ancien, Idiot du Village, Renard, Enfant sauvage, Ange, Deux Sœurs |
+| 10 | Bouc émissaire, Chevalier, Montreur d'ours, Juge bègue, Corbeau, Servante, Grand Méchant Loup |
+| 11 | Trois Frères |
+| 12 | Infect Père des Loups, Loup-Garou Blanc, Joueur de Flûte |
+
+En dessous du seuil, le rôle reste **assignable à la main** : seul le tirage au sort
+l'ignore.
+
+### Déroulé du tirage
+
+1. La meute : les variantes de loup (Grand Méchant Loup, Infect Père des Loups,
+   Loup-Garou Blanc) prennent une place **dans** le quota, jamais en plus, et seulement si
+   la meute compte au moins 2 places — un pack sans Loup-Garou ordinaire n'aurait pas de
+   sens.
+2. Les rôles spéciaux : les classiques d'abord (Voyante, Sorcière, Chasseur, Cupidon,
+   Salvateur), puis les autres dans un ordre aléatoire, tant qu'il reste des places
+   au-delà du plancher de `max(1, n ~/ 4)` Villageois simples.
+3. Le reste de la table reçoit Villageois.
+4. L'ensemble est mélangé.
+
+Cupidon distribué ne crée **aucun couple** : le randomiseur distribue des rôles, pas des
+actions. Le couple reste une action de la première nuit, proposée automatiquement par la
+séquence de cartes tant que Cupidon est vivant.
+
+---
+
 ## 5 bis. Moteur de fin de partie *(v2)*
 
 `VictoryEngine.evaluate(players) → VictoryResult?` — fonction **pure**, sans base ni
@@ -335,6 +398,8 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D9** | L'en-tête de l'export est passé en **AAD** au chiffrement GCM | Sans cela, un attaquant pourrait réécrire `iterations` ou `version` sans invalider le tag. L'AAD est reconstruit champ par champ, pas depuis le texte JSON, pour qu'un reformatage du fichier ne casse pas un import légitime. |
 | **D10** | L'import **régénère tous les identifiants** | Permet d'importer deux fois le même fichier, et garantit qu'un import n'écrase jamais une partie déjà présente. Les couples, les actions et les bilans stockés sont remappés en conséquence. |
 | **D11** | Le Capitaine, les charmes et les rôles modifiés sont appliqués par `NightResolver.apply` | Une seule fonction décrit l'effet d'un tour sur le plateau ; le repository n'est plus qu'une traduction en SQL. |
+| **D16** | La table « loups par joueurs » et les seuils de rôles vivent dans le **catalogue** (`dealCopies`, `minPlayers`) et dans `RoleDealer`, pas dans l'UI | Ajouter un rôle = une entrée dans `role.dart` ; le distributeur le prend en compte sans être modifié. |
+| **D17** | Le Loup-Garou Blanc occupe une place **du quota** de loups, pas une place en plus | Il chasse avec la meute (`wolfSide`) : lui donner un siège supplémentaire déséquilibrerait la table par rapport à la règle de parité. |
 | **D13** | La détection de victoire est une **liste de règles ordonnée**, pas un `if/else` village-vs-loups | Les rôles solitaires (Loup Blanc, Joueur de Flûte, Ange) ont chacun leur propre condition ; les ajouter ne doit pas rouvrir le moteur. La priorité des Amoureux mixtes est simplement leur position dans la liste. |
 | **D14** | Une partie **sans aucun Loup-Garou** se termine dès la première vérification par une victoire du Village | Le brief demande de ne jamais laisser tourner une partie qui ne peut plus se terminer. La règle officielle est « le Village gagne dès que le dernier loup est éliminé » : avec zéro loup, cette condition est vraie d'emblée. Le libellé annoncé est alors « Aucun Loup-Garou ne menace le village », pour ne pas laisser croire qu'un loup a été tué. L'écran de création affiche en plus un avertissement quand la table ne compte aucun loup — la partie n'est jamais bloquée, mais le narrateur est prévenu. |
 | **D15** | `VictoryRecorder` (couche `data` de `victory`) est appelé par les repositories `games` et `nights` | Exception assumée à « aucun repository ne dépend d'une autre feature » : la fin de partie est une règle transverse qui doit s'appliquer **quel que soit** le chemin d'écriture. Les dépendances restent à sens unique (`games`/`nights` → `victory`), sans cycle, et le moteur reste pur et testable seul. |

@@ -1,8 +1,11 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/game_entities.dart';
 import '../../domain/games_repository.dart';
 import '../../domain/role.dart';
+import '../../domain/role_dealer.dart';
 import 'games_providers.dart';
 
 class GameSetupState {
@@ -25,7 +28,7 @@ class GameSetupState {
 
   /// Usual table ratio: roughly one wolf per four players, at least one.
   int get suggestedWerewolfCount =>
-      players.isEmpty ? 0 : (players.length / 4).round().clamp(1, 99);
+      players.isEmpty ? 0 : RoleDealer.werewolfCountFor(players.length);
 
   GameSetupState copyWith({
     String? name,
@@ -65,6 +68,22 @@ class GameSetupController extends Notifier<GameSetupState> {
     final players = [...state.players];
     players[index] = players[index].copyWith(name: trimmed);
     state = state.copyWith(players: players);
+  }
+
+  /// Deals every seat at random. A second call redeals from scratch: the
+  /// narrator can keep rolling until they like the table.
+  void randomizeRoles({Random? random}) {
+    if (state.players.isEmpty) return;
+    final roleIds = RoleDealer.deal(
+      playerCount: state.players.length,
+      random: random,
+    );
+    state = state.copyWith(
+      players: [
+        for (var i = 0; i < state.players.length; i++)
+          state.players[i].copyWith(roleId: roleIds[i]),
+      ],
+    );
   }
 
   void setRoleAt(int index, String roleId) {
