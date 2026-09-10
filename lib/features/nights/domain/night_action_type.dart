@@ -283,6 +283,25 @@ abstract final class NightActionTypes {
     phase: ActionPhase.day,
   );
 
+  static const NightActionType captainSuccession = NightActionType(
+    id: 'captainSuccession',
+    label: 'Successeur désigné par le Capitaine',
+    prompt: 'À qui le Capitaine mourant lègue-t-il son écharpe ?',
+    emoji: '⭐',
+    effect: ActionEffect.captain,
+    phase: ActionPhase.day,
+  );
+
+  static const NightActionType villageIdiotSpared = NightActionType(
+    id: 'villageIdiotSpared',
+    label: 'Idiot du Village démasqué',
+    prompt: 'L\'Idiot du Village survit au vote et perd son droit de vote.',
+    emoji: '🤡',
+    effect: ActionEffect.note,
+    roleId: 'villageIdiot',
+    phase: ActionPhase.day,
+  );
+
   static const NightActionType villageVote = NightActionType(
     id: 'villageVote',
     label: 'Vote du village',
@@ -346,7 +365,9 @@ abstract final class NightActionTypes {
     sistersRecognition,
     brothersRecognition,
     captainElection,
+    captainSuccession,
     villageVote,
+    villageIdiotSpared,
     hunterShot,
     customNote,
   ];

@@ -9,6 +9,7 @@ Player player(
   String id, {
   String role = 'villager',
   bool alive = true,
+  bool captain = false,
   String? lover,
 }) {
   return Player(
@@ -18,6 +19,7 @@ Player player(
     roleId: role,
     seatOrder: 0,
     isAlive: alive,
+    isCaptain: captain,
     coupledWithPlayerId: lover,
   );
 }
@@ -405,6 +407,136 @@ void main() {
       ).map((t) => t.id);
 
       expect(ids, contains(NightActionTypes.hunterShot.id));
+    });
+  });
+
+  group('the captain', () {
+    test('losing the badge is reported and the badge is dropped', () {
+      final players = [
+        player('alice', role: 'villager', captain: true),
+        player('bob', role: 'villager'),
+        player('wolf', role: 'werewolf'),
+      ];
+      final outcome = NightResolver.resolve(
+        players: players,
+        actions: [
+          action(NightActionTypes.werewolfVictim, target: 'alice'),
+        ],
+        nightNumber: 2,
+      );
+
+      expect(outcome.captainDiedId, 'alice');
+
+      final after = NightResolver.apply(players: players, outcome: outcome);
+      final alice = after.firstWhere((p) => p.id == 'alice');
+      expect(alice.isAlive, isFalse);
+      expect(alice.isCaptain, isFalse, reason: 'the badge dies with him');
+    });
+
+    test('a captain who survives keeps the badge', () {
+      final players = [
+        player('alice', role: 'villager', captain: true),
+        player('bob', role: 'villager'),
+        player('wolf', role: 'werewolf'),
+      ];
+      final outcome = NightResolver.resolve(
+        players: players,
+        actions: [
+          action(NightActionTypes.werewolfVictim, target: 'bob'),
+        ],
+        nightNumber: 2,
+      );
+
+      expect(outcome.captainDiedId, isNull);
+      final after = NightResolver.apply(players: players, outcome: outcome);
+      expect(after.firstWhere((p) => p.id == 'alice').isCaptain, isTrue);
+    });
+
+    test('electing a successor hands the badge over in one round', () {
+      final players = [
+        player('alice', role: 'villager', captain: true),
+        player('bob', role: 'villager'),
+        player('carl', role: 'villager'),
+        player('wolf', role: 'werewolf'),
+      ];
+      final outcome = NightResolver.resolve(
+        players: players,
+        actions: [
+          action(NightActionTypes.werewolfVictim, target: 'alice'),
+          action(NightActionTypes.captainSuccession, target: 'bob'),
+        ],
+        nightNumber: 2,
+      );
+
+      expect(outcome.captainDiedId, 'alice');
+      expect(outcome.newCaptainId, 'bob');
+
+      final after = NightResolver.apply(players: players, outcome: outcome);
+      expect(after.firstWhere((p) => p.id == 'alice').isCaptain, isFalse);
+      expect(after.firstWhere((p) => p.id == 'bob').isCaptain, isTrue);
+    });
+
+    test('the outcome survives a round trip through JSON', () {
+      const outcome = NightOutcome(nightNumber: 3, captainDiedId: 'alice');
+      final restored = NightOutcome.fromJson(outcome.toJson());
+
+      expect(restored.captainDiedId, 'alice');
+      expect(restored.isQuiet, isFalse);
+    });
+  });
+
+  group('captain election availability', () {
+    GameSnapshot snapshotOf(List<Player> players) => GameSnapshot(
+      game: Game(
+        id: 'g1',
+        name: 'Partie',
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+        status: GameStatus.inProgress,
+      ),
+      players: players,
+    );
+
+    test('is offered while nobody wears the badge', () {
+      final actions = NightResolver.availableActions(
+        snapshot: snapshotOf([
+          player('alice'),
+          player('wolf', role: 'werewolf'),
+        ]),
+        nightNumber: 1,
+        alreadyUsedOncePerGameIds: const {},
+      ).map((type) => type.id);
+
+      expect(actions, contains(NightActionTypes.captainElection.id));
+    });
+
+    test('disappears while the captain is alive', () {
+      final actions = NightResolver.availableActions(
+        snapshot: snapshotOf([
+          player('alice', captain: true),
+          player('wolf', role: 'werewolf'),
+        ]),
+        nightNumber: 1,
+        alreadyUsedOncePerGameIds: const {},
+      ).map((type) => type.id);
+
+      expect(actions, isNot(contains(NightActionTypes.captainElection.id)));
+      expect(actions, isNot(contains(NightActionTypes.captainSuccession.id)));
+    });
+
+    test('comes back once the captain is dead', () {
+      final actions = NightResolver.availableActions(
+        snapshot: snapshotOf([
+          player('alice', captain: true, alive: false),
+          player('bob'),
+          player('wolf', role: 'werewolf'),
+        ]),
+        nightNumber: 2,
+        alreadyUsedOncePerGameIds: const {},
+      ).map((type) => type.id);
+
+      expect(actions, contains(NightActionTypes.captainElection.id));
+      expect(actions, contains(NightActionTypes.captainSuccession.id));
     });
   });
 }

@@ -350,6 +350,44 @@ base.
 
 ---
 
+## 5 ter. Le Capitaine et le vote du village *(v2)*
+
+### Élection
+
+Le Capitaine est **élu une seule fois**, à l'aube du premier jour, et garde l'écharpe
+jusqu'à sa mort. `NightResolver.availableActions` retire toute action d'effet
+`captain` tant qu'un Capitaine **vivant** est en poste : l'action ne réapparaît que
+lorsque la place est vacante.
+
+Quand le Capitaine meurt, `NightResolver` le signale dans le bilan
+(`NightOutcome.captainDiedId`), `apply` lui retire `isCaptain`, et le résumé affiche
+« Le Capitaine est mort — une nouvelle désignation est nécessaire ». Le narrateur a
+alors deux chemins, tous deux enregistrés dans l'historique :
+
+- `captainSuccession` — le mourant lègue son écharpe à qui il veut (règle officielle
+  du « dernier souffle ») ;
+- `captainElection` — le village revote normalement.
+
+### Vote du village
+
+`VoteResolver.resolve(players, votes, captainVoteTargetId, villageIdiotAlreadySpared)`
+— fonction **pure** de `day/domain`. Le narrateur compte les mains levées et saisit des
+totaux ; le moteur en tire une élimination.
+
+1. Les voix portées sur un mort sont ignorées.
+2. **Le vote du Capitaine compte double** : le total saisi contient déjà sa main levée,
+   désigner sa cible ajoute donc **une** voix supplémentaire.
+3. Majorité nette → le joueur en tête est éliminé.
+4. Égalité → dans l'ordre :
+   1. un **Bouc émissaire** vivant est éliminé à la place (c'est tout son rôle) ;
+   2. sinon la voix du **Capitaine** tranche, si sa cible fait partie des ex æquo ;
+   3. sinon l'égalité reste non résolue : personne n'est éliminé, et le narrateur
+      décide (revote, ou journée blanche).
+5. L'**Idiot du Village** désigné par le vote est démasqué mais **survit** — une seule
+   fois dans la partie ; ensuite il est éliminé comme tout le monde.
+
+---
+
 ## 5 bis. Moteur de fin de partie *(v2)*
 
 `VictoryEngine.evaluate(players) → VictoryResult?` — fonction **pure**, sans base ni
@@ -434,6 +472,9 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D9** | L'en-tête de l'export est passé en **AAD** au chiffrement GCM | Sans cela, un attaquant pourrait réécrire `iterations` ou `version` sans invalider le tag. L'AAD est reconstruit champ par champ, pas depuis le texte JSON, pour qu'un reformatage du fichier ne casse pas un import légitime. |
 | **D10** | L'import **régénère tous les identifiants** | Permet d'importer deux fois le même fichier, et garantit qu'un import n'écrase jamais une partie déjà présente. Les couples, les actions et les bilans stockés sont remappés en conséquence. |
 | **D11** | Le Capitaine, les charmes et les rôles modifiés sont appliqués par `NightResolver.apply` | Une seule fonction décrit l'effet d'un tour sur le plateau ; le repository n'est plus qu'une traduction en SQL. |
+| **D20** | Le total saisi par le narrateur **contient déjà** la main du Capitaine ; désigner sa cible ajoute une seule voix | Le narrateur compte les mains levées : la sienne comprise. Ajouter 2 compterait le Capitaine trois fois. L'écran l'annonce explicitement (« son vote compte double : +1 voix »). |
+| **D21** | L'égalité est tranchée par le **Bouc émissaire avant** le Capitaine | Règle officielle : le Bouc émissaire existe précisément pour ça ; la voix prépondérante du Capitaine ne sert que lorsqu'il n'est pas en jeu. |
+| **D22** | L'immunité de l'Idiot du Village est **une fois par partie**, calculée depuis l'historique (`villageIdiotSpared`) | Le catalogue décrit déjà la règle ; la modéliser sans état supplémentaire sur `players` évite une migration, et l'historique garde la trace du moment où il a été démasqué. |
 | **D18** | La composition est une **table dédiée** (`game_role_selections`), pas une colonne JSON sur `games` | C'est un ensemble de clés vers le catalogue : SQLite sait faire des ensembles, et une ligne par rôle permet de filtrer/joindre sans désérialiser. Le `ON DELETE CASCADE` nettoie tout seul. |
 | **D19** | Aucune ligne de composition = **catalogue entier**, jamais « aucun rôle » | Les parties créées par la v1 n'ont pas de composition : les lire comme « vide » reviendrait à leur retirer des rôles qu'elles utilisent déjà. |
 | **D16** | La table « loups par joueurs » et les seuils de rôles vivent dans le **catalogue** (`dealCopies`, `minPlayers`) et dans `RoleDealer`, pas dans l'UI | Ajouter un rôle = une entrée dans `role.dart` ; le distributeur le prend en compte sans être modifié. |

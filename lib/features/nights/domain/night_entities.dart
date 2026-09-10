@@ -90,6 +90,7 @@ class NightOutcome {
     this.charmedPlayerIds = const [],
     this.roleChanges = const [],
     this.newCaptainId,
+    this.captainDiedId,
     this.notes = const [],
   });
 
@@ -101,6 +102,10 @@ class NightOutcome {
   final List<RoleChange> roleChanges;
   final String? newCaptainId;
 
+  /// The captain lost this round, if any: the village owes itself either a new
+  /// election or the successor the dying captain named.
+  final String? captainDiedId;
+
   /// Narrator-facing lines that do not change the board (visions, spying, ...).
   final List<String> notes;
 
@@ -110,7 +115,8 @@ class NightOutcome {
       newCouple == null &&
       charmedPlayerIds.isEmpty &&
       roleChanges.isEmpty &&
-      newCaptainId == null;
+      newCaptainId == null &&
+      captainDiedId == null;
 
   Map<String, dynamic> toJson() => {
     'nightNumber': nightNumber,
@@ -120,6 +126,7 @@ class NightOutcome {
     'charmedPlayerIds': charmedPlayerIds,
     'roleChanges': roleChanges.map((c) => c.toJson()).toList(),
     if (newCaptainId != null) 'newCaptainId': newCaptainId,
+    if (captainDiedId != null) 'captainDiedId': captainDiedId,
     'notes': notes,
   };
 
@@ -141,6 +148,7 @@ class NightOutcome {
           .map((e) => RoleChange.fromJson(e as Map<String, dynamic>))
           .toList(),
       newCaptainId: json['newCaptainId'] as String?,
+      captainDiedId: json['captainDiedId'] as String?,
       notes: (json['notes'] as List<dynamic>? ?? []).cast<String>(),
     );
   }

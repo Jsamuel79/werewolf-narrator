@@ -118,6 +118,15 @@ abstract final class NightResolver {
     // A player who died this round cannot also be reported as saved.
     savedIds.removeWhere(deadIds.contains);
 
+    // Losing the captain matters beyond the death itself: the badge has to be
+    // handed over before the next vote.
+    String? captainDiedId;
+    for (final player in players) {
+      if (player.isCaptain && player.isAlive && deadIds.contains(player.id)) {
+        captainDiedId = player.id;
+      }
+    }
+
     return NightOutcome(
       nightNumber: nightNumber,
       deaths: deaths,
@@ -126,6 +135,7 @@ abstract final class NightResolver {
       charmedPlayerIds: charmedIds.toList(growable: false),
       roleChanges: roleChanges,
       newCaptainId: newCaptainId,
+      captainDiedId: captainDiedId,
       notes: notes,
     );
   }
@@ -209,6 +219,9 @@ abstract final class NightResolver {
         updated = updated.copyWith(
           isCaptain: player.id == outcome.newCaptainId,
         );
+      } else if (outcome.captainDiedId == player.id) {
+        // The badge dies with its holder; the election action reopens.
+        updated = updated.copyWith(isCaptain: false);
       }
       return updated;
     }).toList(growable: false);
@@ -225,6 +238,7 @@ abstract final class NightResolver {
     final gameHasHunter = snapshot.players.any(
       (p) => p.roleId == Roles.hunter.id,
     );
+    final hasLivingCaptain = snapshot.aliveCaptain != null;
 
     return NightActionTypes.all.where((type) {
       if (type.id == NightActionTypes.unknown.id) return false;
@@ -232,6 +246,9 @@ abstract final class NightResolver {
       if (type.oncePerGame && alreadyUsedOncePerGameIds.contains(type.id)) {
         return false;
       }
+      // The captain is elected once and keeps the badge until he dies: while
+      // one is in office there is nothing to elect.
+      if (type.effect == ActionEffect.captain) return !hasLivingCaptain;
       final roleId = type.roleId;
       if (roleId == null) return true;
       // The hunter shoots as he dies, so his action stays available for as long

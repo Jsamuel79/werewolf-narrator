@@ -73,6 +73,17 @@ class NightOutcomeView extends StatelessWidget {
         ),
       );
     }
+    if (outcome.captainDiedId != null) {
+      lines.add(
+        _OutcomeLine(
+          icon: '⭐',
+          color: AppTheme.werewolfColor,
+          text:
+              'Le Capitaine (${_name(outcome.captainDiedId)}) est mort — '
+              'une nouvelle désignation est nécessaire',
+        ),
+      );
+    }
     if (outcome.newCaptainId != null) {
       lines.add(
         _OutcomeLine(
