@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/ui_feedback.dart';
+import '../../day/presentation/day_screen.dart';
 import '../../export/presentation/export_actions.dart';
 import '../../history/presentation/history_screen.dart';
 import '../../nights/domain/night_entities.dart';
@@ -61,6 +62,9 @@ class _GameDetailView extends ConsumerWidget {
     // Dealing cards again only makes sense before the first round is opened.
     final nights = ref.watch(gameNightsProvider(game.id)).value ?? const [];
     final canDeal = nights.isEmpty && !game.isFinished;
+    // A round whose night is closed is waiting for its day, not for a new one.
+    final openRound = nights.where((n) => !n.isDayResolved).firstOrNull;
+    final waitingForDay = openRound != null && openRound.isResolved;
 
     return Scaffold(
       appBar: AppBar(
@@ -167,10 +171,31 @@ class _GameDetailView extends ConsumerWidget {
       floatingActionButton: game.isFinished
           ? null
           : FloatingActionButton.extended(
-              onPressed: () => _startNight(context, ref),
-              icon: const Icon(Icons.nightlight_round),
-              label: const Text('Nouvelle nuit'),
+              onPressed: waitingForDay
+                  ? () => _openDay(context, openRound.id)
+                  : () => _startNight(context, ref),
+              icon: Icon(
+                waitingForDay
+                    ? Icons.wb_sunny_outlined
+                    : Icons.nightlight_round,
+              ),
+              label: Text(
+                waitingForDay
+                    ? 'Continuer le jour ${openRound.nightNumber}'
+                    : 'Nouvelle nuit',
+              ),
             ),
+    );
+  }
+
+  Future<void> _openDay(BuildContext context, String nightId) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DayScreen(
+          gameId: snapshot.game.id,
+          nightId: nightId,
+        ),
+      ),
     );
   }
 
@@ -574,23 +599,30 @@ class _NightsSection extends ConsumerWidget {
                         child: Text('${night.nightNumber}'),
                       ),
                       title: Text(
-                        night.isResolved
-                            ? 'Nuit ${night.nightNumber}'
-                            : 'Nuit ${night.nightNumber} — en cours',
+                        night.isComplete
+                            ? 'Tour ${night.nightNumber}'
+                            : night.isResolved
+                            ? 'Tour ${night.nightNumber} — jour en cours'
+                            : 'Tour ${night.nightNumber} — nuit en cours',
                       ),
                       subtitle: Text(_summaryOf(night)),
                       trailing: Icon(
-                        night.isResolved
+                        night.isComplete
                             ? Icons.lock_outline
                             : Icons.edit_outlined,
                         size: 18,
                       ),
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => NightCardsScreen(
-                            gameId: snapshot.game.id,
-                            nightId: night.id,
-                          ),
+                          builder: (_) => night.isResolved
+                              ? DayScreen(
+                                  gameId: snapshot.game.id,
+                                  nightId: night.id,
+                                )
+                              : NightCardsScreen(
+                                  gameId: snapshot.game.id,
+                                  nightId: night.id,
+                                ),
                         ),
                       ),
                     ),

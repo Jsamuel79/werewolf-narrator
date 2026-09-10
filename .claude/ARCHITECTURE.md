@@ -69,6 +69,7 @@ lib/
 │   ├── providers/core_providers.dart  # appDatabaseProvider, uuidProvider, clockProvider
 │   ├── errors/app_exception.dart      # hiérarchie scellée d'exceptions métier
 │   ├── theme/app_theme.dart           # Material 3 sombre + couleurs de camps
+│   ├── widgets/swipe_card_stack.dart  # pile de cartes balayables (maison)
 │   └── utils/
 │       ├── formatters.dart            # dates FR, pluriels
 │       └── ui_feedback.dart           # runGuarded / showMessage
@@ -99,7 +100,8 @@ lib/
     │
     ├── nights/
     │   ├── domain/
-    │   │   ├── night_action_type.dart       # catalogue de 21 types d'actions
+    │   │   ├── night_action_type.dart       # catalogue de 23 types d'actions
+    │   │   ├── night_sequence.dart          # 🃏 séquence ordonnée des cartes
     │   │   ├── night_entities.dart          # Night, NightAction, NightOutcome
     │   │   ├── night_resolver.dart          # ⚙️ moteur de résolution (pur)
     │   │   └── nights_repository.dart
@@ -107,11 +109,22 @@ lib/
     │   │   ├── night_mappers.dart
     │   │   └── nights_repository_impl.dart  # + NightContext (vue pour l'écran)
     │   └── presentation/
-    │       ├── night_screen.dart
+    │       ├── night_cards_screen.dart      # la nuit en cartes swipables
     │       ├── controllers/nights_providers.dart
     │       └── widgets/
-    │           ├── action_entry_dialog.dart
+    │           ├── night_card_view.dart     # une carte de rôle
+    │           ├── player_choice_list.dart
     │           └── night_outcome_view.dart
+    │
+    ├── day/
+    │   ├── domain/
+    │   │   ├── day_entities.dart             # DayCardSpec, DaySequenceBuilder
+    │   │   └── vote_resolver.dart            # 🗳️ vote pondéré + égalités (pur)
+    │   └── presentation/
+    │       ├── day_screen.dart               # la journée en cartes
+    │       └── widgets/
+    │           ├── debate_timer_card.dart    # chronomètre de débat
+    │           └── village_vote_card.dart    # saisie des voix
     │
     ├── victory/
     │   ├── domain/
@@ -493,6 +506,51 @@ d'en empiler une seconde.
 
 ---
 
+## 5 quinquies. La journée *(v2)*
+
+Le jour n'était pas modélisé en v1 : le narrateur enregistrait un `villageVote` au milieu
+des actions de nuit. La V2 en fait une **phase à part entière**, elle aussi en cartes,
+enchaînée automatiquement après le bilan de la nuit.
+
+`DaySequenceBuilder.build(snapshot, night, dayActions)` — pur — produit :
+
+| Carte | Quand | Contenu |
+|-------|-------|---------|
+| 🌤️ **Réveil** | toujours | les morts de la nuit, **relus** depuis le `NightOutcome` déjà calculé — rien n'est recalculé |
+| ⭐ **Capitaine** | seulement si aucun Capitaine vivant | liste des vivants ; si le Capitaine vient de mourir, un sélecteur « Nouvelle élection / Désigné par lui » choisit le type d'action enregistrée |
+| ⏱️ **Débat** | toujours | chronomètre configurable (2/3/5/10 min, ±30 s), démarrer / pause / remise à zéro, vibration + son système à la fin |
+| 🗳️ **Vote** | toujours | un compteur +/- par joueur vivant, la cible du Capitaine (+1 voix), et le résultat calculé **en direct** par `VoteResolver` |
+| 🏹 **Tir du Chasseur** | si un Chasseur est mort cette nuit ou vient d'être lynché, et n'a pas encore tiré | choix de la cible |
+| 🌇 **Bilan du jour** | toujours | l'effet du jour, puis « Valider la journée » |
+
+Le vote enregistre selon son issue : `villageVote` (élimination), `villageIdiotSpared`
+(l'Idiot démasqué survit) ou une note libre (égalité non tranchée, journée blanche). Rien
+n'est appliqué au plateau tant que la carte de bilan n'est pas validée : le narrateur peut
+revenir en arrière et recompter.
+
+« Valider la journée » appelle `resolveDay`, qui applique les actions de **phase jour**
+(vote, tir du Chasseur, cascade des amoureux, élection) puis relance la vérification de
+victoire. Si la partie est finie, l'écran de victoire remplace la journée ; sinon on
+revient à la partie, prête pour la nuit suivante.
+
+### Un tour = deux moitiés
+
+```
+Nouvelle nuit ─► cartes de nuit ─► Bilan ─► resolveNight  (nights.resolvedAt)
+                                              │
+                                              ▼
+                              cartes de jour ─► Bilan ─► resolveDay (nights.dayResolvedAt)
+                                              │
+                                              ▼
+                                  victoire ? ─oui─► écran de victoire
+                                              └non─► nuit suivante
+```
+
+`startNight` ne rouvre pas un tour dont le jour n'est pas clos : l'écran de partie propose
+alors « Continuer le jour N » au lieu de « Nouvelle nuit ».
+
+---
+
 ## 6. Flux de données
 
 ```
@@ -535,6 +593,8 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D9** | L'en-tête de l'export est passé en **AAD** au chiffrement GCM | Sans cela, un attaquant pourrait réécrire `iterations` ou `version` sans invalider le tag. L'AAD est reconstruit champ par champ, pas depuis le texte JSON, pour qu'un reformatage du fichier ne casse pas un import légitime. |
 | **D10** | L'import **régénère tous les identifiants** | Permet d'importer deux fois le même fichier, et garantit qu'un import n'écrase jamais une partie déjà présente. Les couples, les actions et les bilans stockés sont remappés en conséquence. |
 | **D11** | Le Capitaine, les charmes et les rôles modifiés sont appliqués par `NightResolver.apply` | Une seule fonction décrit l'effet d'un tour sur le plateau ; le repository n'est plus qu'une traduction en SQL. |
+| **D27** | La journée est une **phase résolue séparément**, pas des actions glissées dans la nuit | Le réveil doit annoncer des morts déjà appliqués au plateau, et le vote doit se compter sur les vivants du matin. Un `DayResolver` séparé aurait dupliqué `NightResolver` : les conséquences (protections, chagrin, capitaine, changements de rôle) sont les mêmes. Le même moteur est donc appelé deux fois, filtré par `phase` — une seule description des règles, deux moments d'application. |
+| **D28** | Le chronomètre et le retour sonore n'utilisent **aucun paquet** | `Timer.periodic`, `HapticFeedback.vibrate()` et `SystemSound.play()` viennent du SDK. Aucun paquet audio, donc aucune permission ajoutée au manifeste et la garantie « zéro réseau » reste vraie sans nouvel audit. |
 | **D23** | La pile de cartes est **maison** (`SwipeCardStack`), sans package de swipe | Un `PageView` ne sait pas faire dépasser la carte suivante derrière la carte courante, et l'app garantit qu'aucune dépendance ne touche au réseau : moins de dépendances, moins de surface à auditer. ~150 lignes de `Transform` et un `AnimationController`. |
 | **D24** | L'ordre de réveil place la **Voyante avant les Loups** | C'est l'ordre du livret officiel (Voleur, Cupidon, Amoureux, Voyante, Loups, Sorcière) : la Voyante ne doit pas savoir qui a été dévoré. Le brief de la V2 citait l'ordre inverse en exemple, mais l'instruction principale était de reprendre l'ordre canonique du jeu de société, et l'ordre n'a aucun effet sur la résolution — seule la Sorcière **doit** passer après les loups, ce qui est respecté. |
 | **D25** | Un tour est désormais **deux moitiés résolues séparément** (`resolvedAt` / `dayResolvedAt`), et chaque action porte sa `phase` | La nuit doit être appliquée au plateau avant que le jour commence (le réveil annonce les morts). Rejouer les actions de nuit au moment du vote fausserait le bilan du jour ; la colonne `phase` rend la séparation explicite, y compris pour le tir du Chasseur qui peut arriver dans les deux. |

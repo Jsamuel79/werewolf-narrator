@@ -121,7 +121,9 @@ class DriftNightsRepository implements NightsRepository {
 
     final open =
         await (_db.select(_db.nights)
-              ..where((n) => n.gameId.equals(gameId) & n.resolvedAt.isNull())
+              ..where(
+                (n) => n.gameId.equals(gameId) & n.dayResolvedAt.isNull(),
+              )
               ..orderBy([(n) => OrderingTerm.asc(n.nightNumber)])
               ..limit(1))
             .getSingleOrNull();

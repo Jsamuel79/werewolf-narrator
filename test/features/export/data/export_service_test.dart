@@ -64,6 +64,7 @@ void main() {
       details: const {'text': 'Loup-Garou'},
     );
     await nights.resolveNight(first.id);
+    await nights.resolveDay(first.id);
 
     final second = await nights.startNight(game.id);
     await nights.addAction(
@@ -72,6 +73,7 @@ void main() {
       targetPlayerId: idOf('Alice'),
     );
     await nights.resolveNight(second.id);
+    await nights.resolveDay(second.id);
   });
 
   tearDown(() async {

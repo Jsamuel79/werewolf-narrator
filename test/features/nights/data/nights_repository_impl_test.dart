@@ -52,6 +52,10 @@ void main() {
     test('opens the next number once the previous round is closed', () async {
       final first = await nights.startNight(game.id);
       await nights.resolveNight(first.id);
+      // A round is only over once its day has been resolved too.
+      expect((await nights.startNight(game.id)).id, first.id);
+
+      await nights.resolveDay(first.id);
       final second = await nights.startNight(game.id);
       expect(second.nightNumber, 2);
     });
@@ -205,6 +209,7 @@ void main() {
         secondaryTargetPlayerId: playerNamed('Chloé').id,
       );
       await nights.resolveNight(first.id);
+      await nights.resolveDay(first.id);
 
       final second = await nights.startNight(game.id);
       await nights.addAction(
@@ -254,6 +259,7 @@ void main() {
         targetPlayerId: playerNamed('Alice').id,
       );
       await nights.resolveNight(first.id);
+      await nights.resolveDay(first.id);
       final second = await nights.startNight(game.id);
       await nights.addAction(
         nightId: second.id,

@@ -90,6 +90,7 @@ void main() {
       targetPlayerId: idOf('Alice'),
     );
     await nights.resolveNight(first.id);
+    await nights.resolveDay(first.id);
 
     final second = await nights.startNight(game.id);
     await nights.addAction(
@@ -98,6 +99,7 @@ void main() {
       targetPlayerId: idOf('Bob'),
     );
     await nights.resolveNight(second.id);
+    await nights.resolveDay(second.id);
 
     await tester.pumpWidget(wrap(HistoryScreen(gameId: game.id)));
     await tester.pumpAndSettle();

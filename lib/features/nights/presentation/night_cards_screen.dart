@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/ui_feedback.dart';
 import '../../../core/widgets/swipe_card_stack.dart';
+import '../../day/presentation/day_screen.dart';
 import '../data/nights_repository_impl.dart';
 import '../domain/night_action_type.dart';
 import '../domain/night_sequence.dart';
@@ -246,9 +247,17 @@ class _NightCardsScreenState extends ConsumerState<NightCardsScreen> {
     if (!ok || !mounted) return;
     if (onResolved != null) {
       onResolved(context);
-    } else if (navigator.canPop()) {
-      navigator.pop();
+      return;
     }
+    // The night is applied to the board; the village wakes up.
+    await navigator.pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => DayScreen(
+          gameId: widget.gameId,
+          nightId: widget.nightId,
+        ),
+      ),
+    );
   }
 }
 

@@ -300,6 +300,10 @@ abstract final class NightActionTypes {
     effect: ActionEffect.note,
     roleId: 'villageIdiot',
     phase: ActionPhase.day,
+    requiresTarget: false,
+    // He is only unmasked once; afterwards the village may lynch him like
+    // anybody else, which is exactly what `oncePerGame` already models.
+    oncePerGame: true,
   );
 
   static const NightActionType villageVote = NightActionType(
