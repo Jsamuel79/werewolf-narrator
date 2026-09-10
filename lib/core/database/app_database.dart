@@ -5,7 +5,9 @@ import 'tables.dart';
 
 part 'app_database.g.dart';
 
-@DriftDatabase(tables: [Games, Players, Nights, NightActions])
+@DriftDatabase(
+  tables: [Games, Players, Nights, NightActions, GameRoleSelections],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
@@ -13,7 +15,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -27,6 +29,10 @@ class AppDatabase extends _$AppDatabase {
         // v2 — remember which camp won a finished game.
         await m.addColumn(games, games.winnerCampId);
         await m.addColumn(games, games.winnerReason);
+      }
+      if (from < 3) {
+        // v3 — the roles allowed for a given game.
+        await m.createTable(gameRoleSelections);
       }
     },
     beforeOpen: (OpeningDetails details) async {

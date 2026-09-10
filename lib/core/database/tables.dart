@@ -103,3 +103,21 @@ class NightActions extends Table {
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
+
+/// One role the narrator allowed for a given game.
+///
+/// A row per allowed role rather than a JSON blob on `games`: the selection is
+/// a set of foreign keys to the role catalogue, and SQLite is better at sets
+/// than at parsing text. Absence of any row means « no explicit composition »,
+/// which the app reads as the whole catalogue.
+@DataClassName('GameRoleSelectionRow')
+class GameRoleSelections extends Table {
+  TextColumn get gameId =>
+      text().references(Games, #id, onDelete: KeyAction.cascade)();
+
+  /// Key into the role catalogue — free-form, like `Players.roleId`.
+  TextColumn get roleId => text().withLength(max: 40)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {gameId, roleId};
+}

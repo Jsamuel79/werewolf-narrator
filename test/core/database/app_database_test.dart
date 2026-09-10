@@ -15,8 +15,8 @@ void main() {
         status: 'setup',
       );
 
-  test('schema version is 2', () {
-    expect(db.schemaVersion, 2);
+  test('schema version is 3', () {
+    expect(db.schemaVersion, 3);
   });
 
   test('deleting a game cascades to players, nights and actions', () async {

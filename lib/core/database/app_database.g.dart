@@ -2413,6 +2413,228 @@ class NightActionsCompanion extends UpdateCompanion<NightActionRow> {
   }
 }
 
+class $GameRoleSelectionsTable extends GameRoleSelections
+    with TableInfo<$GameRoleSelectionsTable, GameRoleSelectionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GameRoleSelectionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _gameIdMeta = const VerificationMeta('gameId');
+  @override
+  late final GeneratedColumn<String> gameId = GeneratedColumn<String>(
+    'game_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES games (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _roleIdMeta = const VerificationMeta('roleId');
+  @override
+  late final GeneratedColumn<String> roleId = GeneratedColumn<String>(
+    'role_id',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 40),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [gameId, roleId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'game_role_selections';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<GameRoleSelectionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('game_id')) {
+      context.handle(
+        _gameIdMeta,
+        gameId.isAcceptableOrUnknown(data['game_id']!, _gameIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_gameIdMeta);
+    }
+    if (data.containsKey('role_id')) {
+      context.handle(
+        _roleIdMeta,
+        roleId.isAcceptableOrUnknown(data['role_id']!, _roleIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roleIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {gameId, roleId};
+  @override
+  GameRoleSelectionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return GameRoleSelectionRow(
+      gameId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}game_id'],
+      )!,
+      roleId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role_id'],
+      )!,
+    );
+  }
+
+  @override
+  $GameRoleSelectionsTable createAlias(String alias) {
+    return $GameRoleSelectionsTable(attachedDatabase, alias);
+  }
+}
+
+class GameRoleSelectionRow extends DataClass
+    implements Insertable<GameRoleSelectionRow> {
+  final String gameId;
+
+  /// Key into the role catalogue — free-form, like `Players.roleId`.
+  final String roleId;
+  const GameRoleSelectionRow({required this.gameId, required this.roleId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['game_id'] = Variable<String>(gameId);
+    map['role_id'] = Variable<String>(roleId);
+    return map;
+  }
+
+  GameRoleSelectionsCompanion toCompanion(bool nullToAbsent) {
+    return GameRoleSelectionsCompanion(
+      gameId: Value(gameId),
+      roleId: Value(roleId),
+    );
+  }
+
+  factory GameRoleSelectionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return GameRoleSelectionRow(
+      gameId: serializer.fromJson<String>(json['gameId']),
+      roleId: serializer.fromJson<String>(json['roleId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'gameId': serializer.toJson<String>(gameId),
+      'roleId': serializer.toJson<String>(roleId),
+    };
+  }
+
+  GameRoleSelectionRow copyWith({String? gameId, String? roleId}) =>
+      GameRoleSelectionRow(
+        gameId: gameId ?? this.gameId,
+        roleId: roleId ?? this.roleId,
+      );
+  GameRoleSelectionRow copyWithCompanion(GameRoleSelectionsCompanion data) {
+    return GameRoleSelectionRow(
+      gameId: data.gameId.present ? data.gameId.value : this.gameId,
+      roleId: data.roleId.present ? data.roleId.value : this.roleId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GameRoleSelectionRow(')
+          ..write('gameId: $gameId, ')
+          ..write('roleId: $roleId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(gameId, roleId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is GameRoleSelectionRow &&
+          other.gameId == this.gameId &&
+          other.roleId == this.roleId);
+}
+
+class GameRoleSelectionsCompanion
+    extends UpdateCompanion<GameRoleSelectionRow> {
+  final Value<String> gameId;
+  final Value<String> roleId;
+  final Value<int> rowid;
+  const GameRoleSelectionsCompanion({
+    this.gameId = const Value.absent(),
+    this.roleId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  GameRoleSelectionsCompanion.insert({
+    required String gameId,
+    required String roleId,
+    this.rowid = const Value.absent(),
+  }) : gameId = Value(gameId),
+       roleId = Value(roleId);
+  static Insertable<GameRoleSelectionRow> custom({
+    Expression<String>? gameId,
+    Expression<String>? roleId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (gameId != null) 'game_id': gameId,
+      if (roleId != null) 'role_id': roleId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  GameRoleSelectionsCompanion copyWith({
+    Value<String>? gameId,
+    Value<String>? roleId,
+    Value<int>? rowid,
+  }) {
+    return GameRoleSelectionsCompanion(
+      gameId: gameId ?? this.gameId,
+      roleId: roleId ?? this.roleId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (gameId.present) {
+      map['game_id'] = Variable<String>(gameId.value);
+    }
+    if (roleId.present) {
+      map['role_id'] = Variable<String>(roleId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GameRoleSelectionsCompanion(')
+          ..write('gameId: $gameId, ')
+          ..write('roleId: $roleId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2420,6 +2642,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PlayersTable players = $PlayersTable(this);
   late final $NightsTable nights = $NightsTable(this);
   late final $NightActionsTable nightActions = $NightActionsTable(this);
+  late final $GameRoleSelectionsTable gameRoleSelections =
+      $GameRoleSelectionsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2429,6 +2653,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     players,
     nights,
     nightActions,
+    gameRoleSelections,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -2452,6 +2677,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('night_actions', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'games',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('game_role_selections', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -2518,6 +2750,30 @@ final class $$GamesTableReferences
     ).filter((f) => f.gameId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_nightsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $GameRoleSelectionsTable,
+    List<GameRoleSelectionRow>
+  >
+  _gameRoleSelectionsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.gameRoleSelections,
+        aliasName: 'games__id__game_role_selections__game_id',
+      );
+
+  $$GameRoleSelectionsTableProcessedTableManager get gameRoleSelectionsRefs {
+    final manager = $$GameRoleSelectionsTableTableManager(
+      $_db,
+      $_db.gameRoleSelections,
+    ).filter((f) => f.gameId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _gameRoleSelectionsRefsTable($_db),
+    );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -2618,6 +2874,31 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
           }) => $$NightsTableFilterComposer(
             $db: $db,
             $table: $db.nights,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> gameRoleSelectionsRefs(
+    Expression<bool> Function($$GameRoleSelectionsTableFilterComposer f) f,
+  ) {
+    final $$GameRoleSelectionsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.gameRoleSelections,
+      getReferencedColumn: (t) => t.gameId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GameRoleSelectionsTableFilterComposer(
+            $db: $db,
+            $table: $db.gameRoleSelections,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -2774,6 +3055,32 @@ class $$GamesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> gameRoleSelectionsRefs<T extends Object>(
+    Expression<T> Function($$GameRoleSelectionsTableAnnotationComposer a) f,
+  ) {
+    final $$GameRoleSelectionsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.gameRoleSelections,
+          getReferencedColumn: (t) => t.gameId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$GameRoleSelectionsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.gameRoleSelections,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$GamesTableTableManager
@@ -2789,7 +3096,11 @@ class $$GamesTableTableManager
           $$GamesTableUpdateCompanionBuilder,
           (GameRow, $$GamesTableReferences),
           GameRow,
-          PrefetchHooks Function({bool playersRefs, bool nightsRefs})
+          PrefetchHooks Function({
+            bool playersRefs,
+            bool nightsRefs,
+            bool gameRoleSelectionsRefs,
+          })
         > {
   $$GamesTableTableManager(_$AppDatabase db, $GamesTable table)
     : super(
@@ -2858,44 +3169,81 @@ class $$GamesTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({playersRefs = false, nightsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (playersRefs) db.players,
-                if (nightsRefs) db.nights,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (playersRefs)
-                    await $_getPrefetchedData<GameRow, $GamesTable, PlayerRow>(
-                      currentTable: table,
-                      referencedTable: $$GamesTableReferences._playersRefsTable(
-                        db,
-                      ),
-                      managerFromTypedResult: (p0) =>
-                          $$GamesTableReferences(db, table, p0).playersRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.gameId == item.id),
-                      typedResults: items,
-                    ),
-                  if (nightsRefs)
-                    await $_getPrefetchedData<GameRow, $GamesTable, NightRow>(
-                      currentTable: table,
-                      referencedTable: $$GamesTableReferences._nightsRefsTable(
-                        db,
-                      ),
-                      managerFromTypedResult: (p0) =>
-                          $$GamesTableReferences(db, table, p0).nightsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.gameId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                playersRefs = false,
+                nightsRefs = false,
+                gameRoleSelectionsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (playersRefs) db.players,
+                    if (nightsRefs) db.nights,
+                    if (gameRoleSelectionsRefs) db.gameRoleSelections,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (playersRefs)
+                        await $_getPrefetchedData<
+                          GameRow,
+                          $GamesTable,
+                          PlayerRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$GamesTableReferences
+                              ._playersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$GamesTableReferences(db, table, p0).playersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.gameId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (nightsRefs)
+                        await $_getPrefetchedData<
+                          GameRow,
+                          $GamesTable,
+                          NightRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$GamesTableReferences
+                              ._nightsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$GamesTableReferences(db, table, p0).nightsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.gameId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (gameRoleSelectionsRefs)
+                        await $_getPrefetchedData<
+                          GameRow,
+                          $GamesTable,
+                          GameRoleSelectionRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$GamesTableReferences
+                              ._gameRoleSelectionsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$GamesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).gameRoleSelectionsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.gameId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -2912,7 +3260,11 @@ typedef $$GamesTableProcessedTableManager =
       $$GamesTableUpdateCompanionBuilder,
       (GameRow, $$GamesTableReferences),
       GameRow,
-      PrefetchHooks Function({bool playersRefs, bool nightsRefs})
+      PrefetchHooks Function({
+        bool playersRefs,
+        bool nightsRefs,
+        bool gameRoleSelectionsRefs,
+      })
     >;
 typedef $$PlayersTableCreateCompanionBuilder = PlayersCompanion Function({
   required String id,
@@ -4213,6 +4565,280 @@ typedef $$NightActionsTableProcessedTableManager =
       NightActionRow,
       PrefetchHooks Function({bool nightId})
     >;
+typedef $$GameRoleSelectionsTableCreateCompanionBuilder =
+    GameRoleSelectionsCompanion Function({
+      required String gameId,
+      required String roleId,
+      Value<int> rowid,
+    });
+typedef $$GameRoleSelectionsTableUpdateCompanionBuilder =
+    GameRoleSelectionsCompanion Function({
+      Value<String> gameId,
+      Value<String> roleId,
+      Value<int> rowid,
+    });
+
+final class $$GameRoleSelectionsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $GameRoleSelectionsTable,
+          GameRoleSelectionRow
+        > {
+  $$GameRoleSelectionsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $GamesTable _gameIdTable(_$AppDatabase db) =>
+      db.games.createAlias('game_role_selections__game_id__games__id');
+
+  $$GamesTableProcessedTableManager get gameId {
+    final $_column = $_itemColumn<String>('game_id')!;
+
+    final manager = $$GamesTableTableManager(
+      $_db,
+      $_db.games,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_gameIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$GameRoleSelectionsTableFilterComposer
+    extends Composer<_$AppDatabase, $GameRoleSelectionsTable> {
+  $$GameRoleSelectionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get roleId => $composableBuilder(
+    column: $table.roleId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$GamesTableFilterComposer get gameId {
+    final $$GamesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.gameId,
+      referencedTable: $db.games,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GamesTableFilterComposer(
+            $db: $db,
+            $table: $db.games,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$GameRoleSelectionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $GameRoleSelectionsTable> {
+  $$GameRoleSelectionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get roleId => $composableBuilder(
+    column: $table.roleId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$GamesTableOrderingComposer get gameId {
+    final $$GamesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.gameId,
+      referencedTable: $db.games,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GamesTableOrderingComposer(
+            $db: $db,
+            $table: $db.games,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$GameRoleSelectionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $GameRoleSelectionsTable> {
+  $$GameRoleSelectionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get roleId =>
+      $composableBuilder(column: $table.roleId, builder: (column) => column);
+
+  $$GamesTableAnnotationComposer get gameId {
+    final $$GamesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.gameId,
+      referencedTable: $db.games,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$GamesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.games,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$GameRoleSelectionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $GameRoleSelectionsTable,
+          GameRoleSelectionRow,
+          $$GameRoleSelectionsTableFilterComposer,
+          $$GameRoleSelectionsTableOrderingComposer,
+          $$GameRoleSelectionsTableAnnotationComposer,
+          $$GameRoleSelectionsTableCreateCompanionBuilder,
+          $$GameRoleSelectionsTableUpdateCompanionBuilder,
+          (GameRoleSelectionRow, $$GameRoleSelectionsTableReferences),
+          GameRoleSelectionRow,
+          PrefetchHooks Function({bool gameId})
+        > {
+  $$GameRoleSelectionsTableTableManager(
+    _$AppDatabase db,
+    $GameRoleSelectionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$GameRoleSelectionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$GameRoleSelectionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$GameRoleSelectionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> gameId = const Value.absent(),
+                Value<String> roleId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => GameRoleSelectionsCompanion(
+                gameId: gameId,
+                roleId: roleId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String gameId,
+                required String roleId,
+                Value<int> rowid = const Value.absent(),
+              }) => GameRoleSelectionsCompanion.insert(
+                gameId: gameId,
+                roleId: roleId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$GameRoleSelectionsTable, GameRoleSelectionRow>(
+                    table,
+                  ),
+                  $$GameRoleSelectionsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({gameId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (gameId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.gameId,
+                        referencedTable: $$GameRoleSelectionsTableReferences
+                            ._gameIdTable(db),
+                        referencedColumn: $$GameRoleSelectionsTableReferences
+                            ._gameIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$GameRoleSelectionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $GameRoleSelectionsTable,
+      GameRoleSelectionRow,
+      $$GameRoleSelectionsTableFilterComposer,
+      $$GameRoleSelectionsTableOrderingComposer,
+      $$GameRoleSelectionsTableAnnotationComposer,
+      $$GameRoleSelectionsTableCreateCompanionBuilder,
+      $$GameRoleSelectionsTableUpdateCompanionBuilder,
+      (GameRoleSelectionRow, $$GameRoleSelectionsTableReferences),
+      GameRoleSelectionRow,
+      PrefetchHooks Function({bool gameId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4225,4 +4851,6 @@ class $AppDatabaseManager {
       $$NightsTableTableManager(_db, _db.nights);
   $$NightActionsTableTableManager get nightActions =>
       $$NightActionsTableTableManager(_db, _db.nightActions);
+  $$GameRoleSelectionsTableTableManager get gameRoleSelections =>
+      $$GameRoleSelectionsTableTableManager(_db, _db.gameRoleSelections);
 }

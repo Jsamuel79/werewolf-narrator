@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../victory/data/victory_recorder.dart';
+import '../domain/game_composition.dart';
 import '../domain/game_entities.dart';
 import '../domain/games_repository.dart';
 import 'game_mappers.dart';
@@ -94,6 +95,7 @@ class DriftGamesRepository implements GamesRepository {
   Future<Game> createGame({
     required String name,
     required List<PlayerDraft> players,
+    Set<String>? allowedRoleIds,
   }) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
@@ -115,8 +117,24 @@ class DriftGamesRepository implements GamesRepository {
       status: GameStatus.inProgress,
     );
 
+    final composition = allowedRoleIds == null
+        ? null
+        : GameComposition.normalize(allowedRoleIds);
+
     await _db.transaction(() async {
       await _db.into(_db.games).insert(game.toCompanion());
+      if (composition != null) {
+        for (final roleId in composition) {
+          await _db
+              .into(_db.gameRoleSelections)
+              .insert(
+                GameRoleSelectionsCompanion.insert(
+                  gameId: game.id,
+                  roleId: roleId,
+                ),
+              );
+        }
+      }
       for (var i = 0; i < players.length; i++) {
         await _db
             .into(_db.players)
@@ -253,6 +271,78 @@ class DriftGamesRepository implements GamesRepository {
       await _touch(gameId);
     });
     await _victory.refresh(gameId);
+  }
+
+  @override
+  Future<Set<String>> loadComposition(String gameId) async {
+    final rows = await (_db.select(
+      _db.gameRoleSelections,
+    )..where((s) => s.gameId.equals(gameId))).get();
+    return _compositionOf(rows.map((row) => row.roleId));
+  }
+
+  @override
+  Stream<Set<String>> watchComposition(String gameId) {
+    final query = _db.select(_db.gameRoleSelections)
+      ..where((s) => s.gameId.equals(gameId));
+    return query.watch().map(
+      (rows) => _compositionOf(rows.map((row) => row.roleId)),
+    );
+  }
+
+  /// No row at all means the game predates compositions: it keeps the whole
+  /// catalogue rather than silently losing the roles it was played with.
+  Set<String> _compositionOf(Iterable<String> roleIds) {
+    final ids = roleIds.toSet();
+    return ids.isEmpty
+        ? GameComposition.everything
+        : GameComposition.normalize(ids);
+  }
+
+  @override
+  Future<void> saveComposition({
+    required String gameId,
+    required Set<String> roleIds,
+  }) async {
+    final normalized = GameComposition.normalize(roleIds);
+    await _db.transaction(() async {
+      await (_db.delete(
+        _db.gameRoleSelections,
+      )..where((s) => s.gameId.equals(gameId))).go();
+      for (final roleId in normalized) {
+        await _db
+            .into(_db.gameRoleSelections)
+            .insert(
+              GameRoleSelectionsCompanion.insert(
+                gameId: gameId,
+                roleId: roleId,
+              ),
+            );
+      }
+      await _touch(gameId);
+    });
+  }
+
+  @override
+  Future<Set<String>> loadLastComposition() async {
+    final rows =
+        await (_db.select(_db.gameRoleSelections).join([
+              innerJoin(
+                _db.games,
+                _db.games.id.equalsExp(_db.gameRoleSelections.gameId),
+              ),
+            ])
+              ..orderBy([OrderingTerm.desc(_db.games.createdAt)]))
+            .get();
+    if (rows.isEmpty) return GameComposition.defaultRoleIds;
+
+    // Keep only the rows of the most recent game.
+    final newestGameId = rows.first.readTable(_db.games).id;
+    return GameComposition.normalize(
+      rows
+          .where((row) => row.readTable(_db.games).id == newestGameId)
+          .map((row) => row.readTable(_db.gameRoleSelections).roleId),
+    );
   }
 
   Future<void> _touch(String gameId) async {

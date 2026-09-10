@@ -24,6 +24,15 @@ final StreamProvider<List<GameSnapshot>> archivedGamesProvider =
       return ref.watch(gamesRepositoryProvider).watchGames(archived: true);
     });
 
+/// Roles allowed in a given game, kept live so ticking a box updates the
+/// screens that depend on it.
+final gameCompositionProvider = StreamProvider.family<Set<String>, String>((
+  ref,
+  gameId,
+) {
+  return ref.watch(gamesRepositoryProvider).watchComposition(gameId);
+}, isAutoDispose: true);
+
 final gameSnapshotProvider =
     StreamProvider.family<GameSnapshot?, String>((ref, gameId) {
       return ref.watch(gamesRepositoryProvider).watchGame(gameId);

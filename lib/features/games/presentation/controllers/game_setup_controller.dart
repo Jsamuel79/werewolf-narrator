@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/game_composition.dart';
 import '../../domain/game_entities.dart';
 import '../../domain/games_repository.dart';
 import '../../domain/role.dart';
@@ -13,11 +15,15 @@ class GameSetupState {
     this.name = '',
     this.players = const [],
     this.isSaving = false,
+    this.allowedRoleIds = GameComposition.defaultRoleIds,
   });
 
   final String name;
   final List<PlayerDraft> players;
   final bool isSaving;
+
+  /// Roles allowed in this game; the random deal only picks among them.
+  final Set<String> allowedRoleIds;
 
   bool get canSubmit =>
       !isSaving && name.trim().isNotEmpty && players.length >= 3;
@@ -34,20 +40,63 @@ class GameSetupState {
     String? name,
     List<PlayerDraft>? players,
     bool? isSaving,
+    Set<String>? allowedRoleIds,
   }) {
     return GameSetupState(
       name: name ?? this.name,
       players: players ?? this.players,
       isSaving: isSaving ?? this.isSaving,
+      allowedRoleIds: allowedRoleIds ?? this.allowedRoleIds,
     );
   }
 }
 
 class GameSetupController extends Notifier<GameSetupState> {
+  bool _disposed = false;
+
   @override
-  GameSetupState build() => const GameSetupState();
+  GameSetupState build() {
+    ref.onDispose(() => _disposed = true);
+    // The composition of the last game is the sensible default for the next
+    // one; loaded in the background so the screen opens instantly.
+    unawaited(_restoreLastComposition());
+    return const GameSetupState();
+  }
+
+  Future<void> _restoreLastComposition() async {
+    final last = await ref
+        .read(gamesRepositoryProvider)
+        .loadLastComposition();
+    if (_disposed) return;
+    state = state.copyWith(allowedRoleIds: last);
+  }
 
   void setName(String value) => state = state.copyWith(name: value);
+
+  void setComposition(Set<String> roleIds) => state = state.copyWith(
+    allowedRoleIds: GameComposition.normalize(roleIds),
+  );
+
+  /// Seeds the screen with the players of a game that just ended, so the same
+  /// table can start over without retyping every name.
+  void seed({
+    String? name,
+    List<String>? playerNames,
+    Set<String>? allowedRoleIds,
+  }) {
+    state = state.copyWith(
+      name: name ?? state.name,
+      players: playerNames == null
+          ? state.players
+          : [
+              for (final playerName in playerNames)
+                PlayerDraft(name: playerName, roleId: Roles.villager.id),
+            ],
+      allowedRoleIds: allowedRoleIds == null
+          ? state.allowedRoleIds
+          : GameComposition.normalize(allowedRoleIds),
+    );
+  }
 
   void addPlayer(String name, {String roleId = 'villager'}) {
     final trimmed = name.trim();
@@ -76,6 +125,7 @@ class GameSetupController extends Notifier<GameSetupState> {
     if (state.players.isEmpty) return;
     final roleIds = RoleDealer.deal(
       playerCount: state.players.length,
+      allowedRoleIds: state.allowedRoleIds,
       random: random,
     );
     state = state.copyWith(
@@ -105,7 +155,11 @@ class GameSetupController extends Notifier<GameSetupState> {
     try {
       return await ref
           .read(gamesRepositoryProvider)
-          .createGame(name: state.name, players: state.players);
+          .createGame(
+            name: state.name,
+            players: state.players,
+            allowedRoleIds: state.allowedRoleIds,
+          );
     } finally {
       state = state.copyWith(isSaving: false);
     }

@@ -147,7 +147,7 @@ garde les promesses de sécurité (pas de permission réseau, pas de socket).
 
 ---
 
-## 3. Schéma de base de données (Drift, `schemaVersion = 2`)
+## 3. Schéma de base de données (Drift, `schemaVersion = 3`)
 
 ### `games`
 | Colonne | Type | Notes |
@@ -205,6 +205,18 @@ vote du village qui la suit. Choix documenté en §7 (décision D2).
 | `orderIndex` | INT | ordre de saisie dans la nuit |
 | `createdAt` | DATETIME | horodatage de la saisie |
 
+### `game_role_selections` *(v3)*
+Les rôles autorisés dans une partie — une ligne par rôle coché.
+
+| Colonne | Type | Notes |
+|---------|------|-------|
+| `gameId` | TEXT FK → `games.id` | `ON DELETE CASCADE`, PK composite |
+| `roleId` | TEXT | clé du catalogue, PK composite |
+
+**Aucune ligne** pour une partie = pas de composition explicite (partie créée par la
+v1) : l'application lit alors le catalogue entier, ce qui préserve le comportement
+d'origine.
+
 Les clés étrangères sont activées via `PRAGMA foreign_keys = ON`.
 
 ### Migrations
@@ -216,6 +228,7 @@ donc une partie enregistrée par une version antérieure survit à la mise à jo
 |---------|---------|
 | 1 | schéma initial du MVP (4 tables) |
 | 2 | `games.winnerCampId`, `games.winnerReason` — mémorisation du camp vainqueur |
+| 3 | table `game_role_selections` — rôles autorisés par partie |
 
 ---
 
@@ -314,6 +327,29 @@ séquence de cartes tant que Cupidon est vivant.
 
 ---
 
+## 4 ter. Composition d'une partie *(v2)*
+
+Avant de distribuer, le narrateur choisit **quels rôles** du catalogue sont autorisés dans
+cette partie précise. `GameComposition` (domain) définit les invariants :
+
+- `mandatoryRoleIds` = `{villager, werewolf}` — les fondations du jeu, cochées et
+  **non décochables** ;
+- `defaultRoleIds` = la boîte de base (Villageois, Loup-Garou, Voyante, Sorcière,
+  Chasseur, Cupidon, Salvateur, Petite Fille) ;
+- `normalize()` retire les rôles inconnus et remet les fondations, quoi qu'on lui passe.
+
+L'écran `CompositionScreen` est une simple liste à cocher groupée par camp, avec deux
+raccourcis (« Tout » / « Base ») et un indicateur « table trop petite » sur les rôles dont
+le `minPlayers` dépasse la taille de la table — ces rôles restent cochables et assignables
+à la main, seul le tirage au sort les ignore.
+
+**Réutilisation** : `loadLastComposition()` renvoie la composition de la partie créée le
+plus récemment, et sert de valeur par défaut à la création suivante — y compris au
+« Nouvelle partie » après une victoire. À défaut de partie antérieure, c'est la boîte de
+base.
+
+---
+
 ## 5 bis. Moteur de fin de partie *(v2)*
 
 `VictoryEngine.evaluate(players) → VictoryResult?` — fonction **pure**, sans base ni
@@ -398,6 +434,8 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D9** | L'en-tête de l'export est passé en **AAD** au chiffrement GCM | Sans cela, un attaquant pourrait réécrire `iterations` ou `version` sans invalider le tag. L'AAD est reconstruit champ par champ, pas depuis le texte JSON, pour qu'un reformatage du fichier ne casse pas un import légitime. |
 | **D10** | L'import **régénère tous les identifiants** | Permet d'importer deux fois le même fichier, et garantit qu'un import n'écrase jamais une partie déjà présente. Les couples, les actions et les bilans stockés sont remappés en conséquence. |
 | **D11** | Le Capitaine, les charmes et les rôles modifiés sont appliqués par `NightResolver.apply` | Une seule fonction décrit l'effet d'un tour sur le plateau ; le repository n'est plus qu'une traduction en SQL. |
+| **D18** | La composition est une **table dédiée** (`game_role_selections`), pas une colonne JSON sur `games` | C'est un ensemble de clés vers le catalogue : SQLite sait faire des ensembles, et une ligne par rôle permet de filtrer/joindre sans désérialiser. Le `ON DELETE CASCADE` nettoie tout seul. |
+| **D19** | Aucune ligne de composition = **catalogue entier**, jamais « aucun rôle » | Les parties créées par la v1 n'ont pas de composition : les lire comme « vide » reviendrait à leur retirer des rôles qu'elles utilisent déjà. |
 | **D16** | La table « loups par joueurs » et les seuils de rôles vivent dans le **catalogue** (`dealCopies`, `minPlayers`) et dans `RoleDealer`, pas dans l'UI | Ajouter un rôle = une entrée dans `role.dart` ; le distributeur le prend en compte sans être modifié. |
 | **D17** | Le Loup-Garou Blanc occupe une place **du quota** de loups, pas une place en plus | Il chasse avec la meute (`wolfSide`) : lui donner un siège supplémentaire déséquilibrerait la table par rapport à la règle de parité. |
 | **D13** | La détection de victoire est une **liste de règles ordonnée**, pas un `if/else` village-vs-loups | Les rôles solitaires (Loup Blanc, Joueur de Flûte, Ange) ont chacun leur propre condition ; les ajouter ne doit pas rouvrir le moteur. La priorité des Amoureux mixtes est simplement leur position dans la liste. |

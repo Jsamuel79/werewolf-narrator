@@ -21,6 +21,7 @@ abstract interface class GamesRepository {
   Future<Game> createGame({
     required String name,
     required List<PlayerDraft> players,
+    Set<String>? allowedRoleIds,
   });
 
   Future<void> renameGame(String gameId, String name);
@@ -40,4 +41,19 @@ abstract interface class GamesRepository {
   });
 
   Future<void> removePlayer({required String gameId, required String playerId});
+
+  /// Roles allowed for [gameId]. A game recorded before compositions existed
+  /// has none, and gets the whole catalogue.
+  Future<Set<String>> loadComposition(String gameId);
+
+  Stream<Set<String>> watchComposition(String gameId);
+
+  Future<void> saveComposition({
+    required String gameId,
+    required Set<String> roleIds,
+  });
+
+  /// Composition of the most recent game that has one — the default proposed
+  /// when creating the next game, so the narrator does not tick 26 boxes again.
+  Future<Set<String>> loadLastComposition();
 }

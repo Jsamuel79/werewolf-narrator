@@ -13,6 +13,7 @@ import '../../victory/domain/victory_entities.dart';
 import '../../victory/presentation/victory_screen.dart';
 import '../domain/game_entities.dart';
 import '../domain/role.dart';
+import 'composition_screen.dart';
 import 'controllers/game_board_controller.dart';
 import 'controllers/games_providers.dart';
 import 'widgets/player_actions_sheet.dart';
@@ -77,6 +78,14 @@ class _GameDetailView extends ConsumerWidget {
           PopupMenuButton<_MenuAction>(
             onSelected: (action) => _onMenu(context, ref, action),
             itemBuilder: (context) => [
+              if (canDeal)
+                const PopupMenuItem(
+                  value: _MenuAction.composition,
+                  child: ListTile(
+                    leading: Icon(Icons.checklist),
+                    title: Text('Composition de la partie'),
+                  ),
+                ),
               PopupMenuItem(
                 value: _MenuAction.toggleStatus,
                 child: ListTile(
@@ -192,6 +201,24 @@ class _GameDetailView extends ConsumerWidget {
     final controller = ref.read(gameBoardControllerProvider);
     final game = snapshot.game;
     switch (action) {
+      case _MenuAction.composition:
+        final current = await ref.read(
+          gameCompositionProvider(game.id).future,
+        );
+        if (!context.mounted) return;
+        final selection = await CompositionScreen.show(
+          context,
+          initialSelection: current,
+          playerCount: snapshot.players.length,
+        );
+        if (selection == null || !context.mounted) return;
+        await runGuarded(
+          context,
+          () => controller.setComposition(
+            gameId: game.id,
+            roleIds: selection,
+          ),
+        );
       case _MenuAction.toggleStatus:
         final next = game.status == GameStatus.finished
             ? GameStatus.inProgress
@@ -280,11 +307,16 @@ class _GameDetailView extends ConsumerWidget {
     );
     if (confirmed != true || !context.mounted) return;
 
+    final allowed = await ref.read(
+      gameCompositionProvider(snapshot.game.id).future,
+    );
+    if (!context.mounted) return;
+
     await runGuarded(
       context,
       () => ref
           .read(gameBoardControllerProvider)
-          .randomizeRoles(snapshot: snapshot),
+          .randomizeRoles(snapshot: snapshot, allowedRoleIds: allowed),
     );
   }
 
@@ -328,7 +360,7 @@ class _GameDetailView extends ConsumerWidget {
   }
 }
 
-enum _MenuAction { toggleStatus, export, toggleArchive }
+enum _MenuAction { composition, toggleStatus, export, toggleArchive }
 
 /// Shown at the top of a finished game: which camp won, and why.
 class _VictoryBanner extends StatelessWidget {

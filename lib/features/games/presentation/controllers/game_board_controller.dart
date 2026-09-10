@@ -40,10 +40,12 @@ class GameBoardController {
   /// A proposal, not a lock: each assignment stays editable afterwards.
   Future<void> randomizeRoles({
     required GameSnapshot snapshot,
+    Set<String>? allowedRoleIds,
     Random? random,
   }) {
     final roleIds = RoleDealer.deal(
       playerCount: snapshot.players.length,
+      allowedRoleIds: allowedRoleIds,
       random: random,
     );
     return _repository.savePlayers([
@@ -95,6 +97,13 @@ class GameBoardController {
     required String roleId,
   }) {
     return _repository.addPlayer(gameId: gameId, name: name, roleId: roleId);
+  }
+
+  Future<void> setComposition({
+    required String gameId,
+    required Set<String> roleIds,
+  }) {
+    return _repository.saveComposition(gameId: gameId, roleIds: roleIds);
   }
 
   Future<void> setStatus({

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/ui_feedback.dart';
 import '../domain/role.dart';
+import 'composition_screen.dart';
 import 'controllers/game_setup_controller.dart';
 import 'game_detail_screen.dart';
 import 'widgets/role_badge.dart';
@@ -102,18 +103,39 @@ class _GameSetupScreenState extends ConsumerState<GameSetupScreen> {
             ),
           ),
           _SetupSummary(state: state),
-          if (state.players.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: controller.randomizeRoles,
-                  icon: const Icon(Icons.casino_outlined),
-                  label: const Text('Distribution aléatoire'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _editComposition,
+                    icon: const Icon(Icons.checklist),
+                    label: Text(
+                      'Composition (${state.allowedRoleIds.length})',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Tooltip(
+                    message: 'Distribution aléatoire des rôles',
+                    child: OutlinedButton.icon(
+                      onPressed: state.players.isEmpty
+                          ? null
+                          : controller.randomizeRoles,
+                      icon: const Icon(Icons.casino_outlined),
+                      label: const Text(
+                        'Distribuer',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
+          ),
           const Divider(),
           Expanded(
             child: state.players.isEmpty
@@ -183,6 +205,17 @@ class _GameSetupScreenState extends ConsumerState<GameSetupScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _editComposition() async {
+    final state = ref.read(gameSetupControllerProvider);
+    final selection = await CompositionScreen.show(
+      context,
+      initialSelection: state.allowedRoleIds,
+      playerCount: state.players.isEmpty ? null : state.players.length,
+    );
+    if (selection == null) return;
+    ref.read(gameSetupControllerProvider.notifier).setComposition(selection);
   }
 
   Future<void> _pickRole(int index, String currentRoleId) async {

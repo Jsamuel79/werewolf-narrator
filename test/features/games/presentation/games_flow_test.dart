@@ -199,7 +199,7 @@ void main() {
       // Everybody starts as a plain villager, so the warning shows.
       expect(find.textContaining('Aucun Loup-Garou'), findsOneWidget);
 
-      await tester.tap(find.text('Distribution aléatoire'));
+      await tester.tap(find.text('Distribuer'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Aucun Loup-Garou'), findsNothing);

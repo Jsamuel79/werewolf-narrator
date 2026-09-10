@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'package:werewolf_narrator/core/database/app_database.dart';
 import 'package:werewolf_narrator/core/errors/app_exception.dart';
 import 'package:werewolf_narrator/features/games/data/games_repository_impl.dart';
+import 'package:werewolf_narrator/features/games/domain/game_composition.dart';
 import 'package:werewolf_narrator/features/games/domain/game_entities.dart';
 import 'package:werewolf_narrator/features/games/domain/games_repository.dart';
 
@@ -215,6 +216,111 @@ void main() {
         (await repository.loadGame(game.id))!.game.status,
         GameStatus.finished,
       );
+    });
+  });
+
+  group('composition', () {
+    test('a game created without one gets the whole catalogue', () async {
+      final game = await repository.createGame(name: 'A', players: drafts);
+
+      expect(
+        await repository.loadComposition(game.id),
+        GameComposition.everything,
+      );
+    });
+
+    test('stores the roles allowed for a game', () async {
+      final game = await repository.createGame(
+        name: 'A',
+        players: drafts,
+        allowedRoleIds: const {'seer', 'witch'},
+      );
+
+      final stored = await repository.loadComposition(game.id);
+      expect(stored, containsAll(<String>['seer', 'witch']));
+      // The two foundations are put back in whatever the caller passed.
+      expect(stored, containsAll(GameComposition.mandatoryRoleIds));
+      expect(stored, isNot(contains('piper')));
+    });
+
+    test('saving a composition replaces the previous one', () async {
+      final game = await repository.createGame(
+        name: 'A',
+        players: drafts,
+        allowedRoleIds: const {'seer', 'witch', 'cupid'},
+      );
+
+      await repository.saveComposition(
+        gameId: game.id,
+        roleIds: const {'hunter'},
+      );
+
+      final stored = await repository.loadComposition(game.id);
+      expect(stored, contains('hunter'));
+      expect(stored, isNot(contains('cupid')));
+    });
+
+    test('watching a composition emits the change', () async {
+      final game = await repository.createGame(
+        name: 'A',
+        players: drafts,
+        allowedRoleIds: const {'seer'},
+      );
+
+      final stream = repository.watchComposition(game.id);
+      await expectLater(
+        stream,
+        emits(predicate<Set<String>>((set) => set.contains('seer'))),
+      );
+
+      await repository.saveComposition(
+        gameId: game.id,
+        roleIds: const {'guard'},
+      );
+      await expectLater(
+        stream,
+        emits(predicate<Set<String>>((set) => set.contains('guard'))),
+      );
+    });
+
+    test('the last composition is proposed for the next game', () async {
+      await repository.createGame(
+        name: 'Ancienne',
+        players: drafts,
+        allowedRoleIds: const {'seer', 'witch'},
+      );
+      final later = DriftGamesRepository(
+        database: db,
+        uuid: const Uuid(),
+        clock: () => DateTime(2026, 6, 1),
+      );
+      await later.createGame(
+        name: 'Récente',
+        players: drafts,
+        allowedRoleIds: const {'piper', 'angel'},
+      );
+
+      final last = await repository.loadLastComposition();
+      expect(last, containsAll(<String>['piper', 'angel']));
+      expect(last, isNot(contains('witch')));
+    });
+
+    test('with no game at all, the base box is proposed', () async {
+      expect(
+        await repository.loadLastComposition(),
+        GameComposition.defaultRoleIds,
+      );
+    });
+
+    test('deleting a game drops its composition', () async {
+      final game = await repository.createGame(
+        name: 'A',
+        players: drafts,
+        allowedRoleIds: const {'seer'},
+      );
+      await repository.deleteGame(game.id);
+
+      expect(await db.select(db.gameRoleSelections).get(), isEmpty);
     });
   });
 }
