@@ -26,6 +26,28 @@ Future<bool> runGuarded(
   }
 }
 
+/// Same contract as [runGuarded], for an action that produces a value.
+///
+/// Returns `null` when the action failed — the snack bar has already told the
+/// narrator why.
+Future<T?> runGuardedValue<T extends Object>(
+  BuildContext context,
+  Future<T> Function() action,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    return await action();
+  } on AppException catch (error) {
+    messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    return null;
+  } on Object {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Une erreur inattendue est survenue.')),
+    );
+    return null;
+  }
+}
+
 void showMessage(BuildContext context, String message) {
   ScaffoldMessenger.of(
     context,

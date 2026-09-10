@@ -551,6 +551,29 @@ alors « Continuer le jour N » au lieu de « Nouvelle nuit ».
 
 ---
 
+## 5 sexies. Fin de partie et revanche *(v2)*
+
+L'écran de victoire (`victory/presentation/victory_screen.dart`) affiche le camp
+vainqueur avec sa couleur, la phrase qui explique la victoire, la liste des survivants et
+celle des éliminés (avec leur rôle révélé), puis trois sorties :
+
+- **Voir l'historique complet** — la chronologie de la partie qui vient de se terminer ;
+- **Rejouer avec les mêmes joueurs** — ouvre l'écran de création **pré-rempli** : les
+  mêmes noms, la composition de rôles de la partie terminée, et un nom incrémenté
+  (« Soirée du samedi » → « Soirée du samedi (2) »). Tous les statuts repartent de zéro
+  (`isAlive`, `isCaptain`, `coupledWithPlayerId`, `deathNightNumber`, `deathCause`,
+  `isCharmed`) puisque ce sont de **nouvelles lignes** `players` ;
+- **Nouvelle partie, nouveaux joueurs** — l'écran de création vierge de la v1.
+
+La partie terminée n'est jamais écrasée : la revanche crée une **nouvelle ligne** `games`
+avec un nouvel id et une nouvelle date, et l'ancienne reste consultable depuis l'accueil.
+
+Depuis l'écran de création pré-rempli, le narrateur peut encore modifier la composition,
+lancer la distribution aléatoire, renommer, ajouter ou retirer des joueurs : la revanche
+est un point de départ, pas un moule.
+
+---
+
 ## 6. Flux de données
 
 ```
@@ -593,6 +616,7 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D9** | L'en-tête de l'export est passé en **AAD** au chiffrement GCM | Sans cela, un attaquant pourrait réécrire `iterations` ou `version` sans invalider le tag. L'AAD est reconstruit champ par champ, pas depuis le texte JSON, pour qu'un reformatage du fichier ne casse pas un import légitime. |
 | **D10** | L'import **régénère tous les identifiants** | Permet d'importer deux fois le même fichier, et garantit qu'un import n'écrase jamais une partie déjà présente. Les couples, les actions et les bilans stockés sont remappés en conséquence. |
 | **D11** | Le Capitaine, les charmes et les rôles modifiés sont appliqués par `NightResolver.apply` | Une seule fonction décrit l'effet d'un tour sur le plateau ; le repository n'est plus qu'une traduction en SQL. |
+| **D29** | « Rejouer » **crée une nouvelle partie** au lieu de réinitialiser l'ancienne | Une partie terminée est une archive : l'historique, les bilans et les rôles révélés doivent rester consultables. Réinitialiser les lignes existantes les détruirait. |
 | **D27** | La journée est une **phase résolue séparément**, pas des actions glissées dans la nuit | Le réveil doit annoncer des morts déjà appliqués au plateau, et le vote doit se compter sur les vivants du matin. Un `DayResolver` séparé aurait dupliqué `NightResolver` : les conséquences (protections, chagrin, capitaine, changements de rôle) sont les mêmes. Le même moteur est donc appelé deux fois, filtré par `phase` — une seule description des règles, deux moments d'application. |
 | **D28** | Le chronomètre et le retour sonore n'utilisent **aucun paquet** | `Timer.periodic`, `HapticFeedback.vibrate()` et `SystemSound.play()` viennent du SDK. Aucun paquet audio, donc aucune permission ajoutée au manifeste et la garantie « zéro réseau » reste vraie sans nouvel audit. |
 | **D23** | La pile de cartes est **maison** (`SwipeCardStack`), sans package de swipe | Un `PageView` ne sait pas faire dépasser la carte suivante derrière la carte courante, et l'app garantit qu'aucune dépendance ne touche au réseau : moins de dépendances, moins de surface à auditer. ~150 lignes de `Transform` et un `AnimationController`. |

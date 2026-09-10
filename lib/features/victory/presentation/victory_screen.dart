@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/ui_feedback.dart';
 import '../../games/domain/game_entities.dart';
 import '../../games/domain/role.dart';
 import '../../games/presentation/controllers/games_providers.dart';
@@ -31,16 +32,49 @@ class VictoryScreen extends ConsumerWidget {
             body: const Center(child: Text('Partie introuvable.')),
           );
         }
-        return _VictoryView(snapshot: snapshot);
+        return _VictoryView(snapshot: snapshot, ref: ref);
       },
     );
   }
 }
 
 class _VictoryView extends StatelessWidget {
-  const _VictoryView({required this.snapshot});
+  const _VictoryView({required this.snapshot, required this.ref});
 
   final GameSnapshot snapshot;
+  final WidgetRef ref;
+
+  /// « Soirée du samedi » → « Soirée du samedi (2) » → « … (3) ».
+  static String nextGameName(String name) {
+    final match = RegExp(r'^(.*) \((\d+)\)$').firstMatch(name.trim());
+    if (match == null) return '${name.trim()} (2)';
+    final number = int.tryParse(match.group(2)!) ?? 1;
+    return '${match.group(1)} (${number + 1})';
+  }
+
+  /// Replays with the same table: a brand new game row, every status reset —
+  /// the finished one stays in the history untouched.
+  Future<void> _rematch(BuildContext context) async {
+    final composition = await runGuardedValue(
+      context,
+      () => ref
+          .read(gamesRepositoryProvider)
+          .loadComposition(snapshot.game.id),
+    );
+    if (composition == null || !context.mounted) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GameSetupScreen(
+          initialName: nextGameName(snapshot.game.name),
+          initialPlayerNames: [
+            for (final player in snapshot.players) player.name,
+          ],
+          initialComposition: composition,
+        ),
+      ),
+    );
+  }
 
   Color _campColor(VictoryCamp camp) {
     if (camp.id == VictoryCamp.village.id) return AppTheme.villageColor;
@@ -133,13 +167,19 @@ class _VictoryView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
+            onPressed: () => _rematch(context),
+            icon: const Icon(Icons.replay),
+            label: const Text('Rejouer avec les mêmes joueurs'),
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => const GameSetupScreen(),
               ),
             ),
-            icon: const Icon(Icons.replay),
-            label: const Text('Nouvelle partie'),
+            icon: const Icon(Icons.group_add_outlined),
+            label: const Text('Nouvelle partie, nouveaux joueurs'),
           ),
         ],
       ),
@@ -183,4 +223,10 @@ class _PlayerLine extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Small window into the private view, for tests that check the naming rule
+/// without going through the whole screen.
+abstract final class VictoryScreenTestHooks {
+  static String nextGameName(String name) => _VictoryView.nextGameName(name);
 }

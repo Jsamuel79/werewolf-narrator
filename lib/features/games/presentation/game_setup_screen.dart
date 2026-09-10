@@ -11,7 +11,17 @@ import 'widgets/role_badge.dart';
 import 'widgets/role_picker_sheet.dart';
 
 class GameSetupScreen extends ConsumerStatefulWidget {
-  const GameSetupScreen({super.key});
+  const GameSetupScreen({
+    this.initialName,
+    this.initialPlayerNames,
+    this.initialComposition,
+    super.key,
+  });
+
+  /// Starting point of a rematch: the same table, everything reset.
+  final String? initialName;
+  final List<String>? initialPlayerNames;
+  final Set<String>? initialComposition;
 
   @override
   ConsumerState<GameSetupScreen> createState() => _GameSetupScreenState();
@@ -21,6 +31,30 @@ class _GameSetupScreenState extends ConsumerState<GameSetupScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _playerController = TextEditingController();
   final FocusNode _playerFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    final hasSeed =
+        widget.initialName != null ||
+        widget.initialPlayerNames != null ||
+        widget.initialComposition != null;
+    if (!hasSeed) return;
+
+    _nameController.text = widget.initialName ?? '';
+    // The controller is built lazily; seeding after the first frame keeps the
+    // notifier's own initialisation from racing with ours.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref
+          .read(gameSetupControllerProvider.notifier)
+          .seed(
+            name: widget.initialName,
+            playerNames: widget.initialPlayerNames,
+            allowedRoleIds: widget.initialComposition,
+          );
+    });
+  }
 
   @override
   void dispose() {

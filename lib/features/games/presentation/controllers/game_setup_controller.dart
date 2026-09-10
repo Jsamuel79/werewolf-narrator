@@ -54,6 +54,10 @@ class GameSetupState {
 class GameSetupController extends Notifier<GameSetupState> {
   bool _disposed = false;
 
+  /// Set once the screen handed over a starting point (a rematch), so the
+  /// background load of the last composition does not overwrite it.
+  bool _seeded = false;
+
   @override
   GameSetupState build() {
     ref.onDispose(() => _disposed = true);
@@ -67,7 +71,7 @@ class GameSetupController extends Notifier<GameSetupState> {
     final last = await ref
         .read(gamesRepositoryProvider)
         .loadLastComposition();
-    if (_disposed) return;
+    if (_disposed || _seeded) return;
     state = state.copyWith(allowedRoleIds: last);
   }
 
@@ -84,6 +88,7 @@ class GameSetupController extends Notifier<GameSetupState> {
     List<String>? playerNames,
     Set<String>? allowedRoleIds,
   }) {
+    _seeded = true;
     state = state.copyWith(
       name: name ?? state.name,
       players: playerNames == null
