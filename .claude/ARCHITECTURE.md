@@ -193,7 +193,7 @@ garde les promesses de sécurité (pas de permission réseau, pas de socket).
 
 ### `nights`
 Un enregistrement `nights` représente **un tour complet** : la phase de nuit *et* le
-vote du village qui la suit. Choix documenté en §7 (décision D2).
+vote du village qui la suit. Choix documenté en §14 (décision D2).
 
 | Colonne | Type | Notes |
 |---------|------|-------|
@@ -261,27 +261,7 @@ est un `TEXT` libre, et un rôle inconnu retombe sur un `RoleDefinition.unknown`
 
 ---
 
-## 5. Moteur de résolution d'une nuit
-
-`NightResolver.resolve(players, actions, nightNumber) → NightOutcome`
-
-Fonction **pure** (aucune I/O), donc entièrement testable :
-
-1. Collecte des attaques létales : loups, potion de mort, Loup Blanc, vote du village,
-   tir du Chasseur.
-2. Application des protections : Salvateur (`guardProtect`) et potion de vie
-   (`witchHeal`) annulent l'attaque des loups ; la potion de mort et le vote ne sont
-   **pas** protégeables.
-3. Cascade des amoureux : la mort d'un amoureux entraîne celle de l'autre (chagrin),
-   récursivement.
-4. Production du `NightOutcome` : morts (avec cause), sauvetages, nouveaux couples,
-   révélations de la Voyante, joueurs charmés.
-5. Le repository applique ensuite l'outcome : `isAlive`, `deathNightNumber`,
-   `deathCause`, `coupledWithPlayerId`, `isCharmed`.
-
----
-
-## 4 bis. Distribution aléatoire des rôles *(v2)*
+## 5. Distribution aléatoire des rôles *(v2)*
 
 `RoleDealer.deal(playerCount, allowedRoleIds, random) → List<String>` — une fonction
 **pure** de `games/domain`, un rôle par siège, mélangé. Le bouton « Distribution
@@ -344,7 +324,7 @@ séquence de cartes tant que Cupidon est vivant.
 
 ---
 
-## 4 ter. Composition d'une partie *(v2)*
+## 6. Composition d'une partie *(v2)*
 
 Avant de distribuer, le narrateur choisit **quels rôles** du catalogue sont autorisés dans
 cette partie précise. `GameComposition` (domain) définit les invariants :
@@ -367,87 +347,27 @@ base.
 
 ---
 
-## 5 ter. Le Capitaine et le vote du village *(v2)*
+## 7. Moteur de résolution d'une nuit
 
-### Élection
+`NightResolver.resolve(players, actions, nightNumber) → NightOutcome`
 
-Le Capitaine est **élu une seule fois**, à l'aube du premier jour, et garde l'écharpe
-jusqu'à sa mort. `NightResolver.availableActions` retire toute action d'effet
-`captain` tant qu'un Capitaine **vivant** est en poste : l'action ne réapparaît que
-lorsque la place est vacante.
+Fonction **pure** (aucune I/O), donc entièrement testable :
 
-Quand le Capitaine meurt, `NightResolver` le signale dans le bilan
-(`NightOutcome.captainDiedId`), `apply` lui retire `isCaptain`, et le résumé affiche
-« Le Capitaine est mort — une nouvelle désignation est nécessaire ». Le narrateur a
-alors deux chemins, tous deux enregistrés dans l'historique :
-
-- `captainSuccession` — le mourant lègue son écharpe à qui il veut (règle officielle
-  du « dernier souffle ») ;
-- `captainElection` — le village revote normalement.
-
-### Vote du village
-
-`VoteResolver.resolve(players, votes, captainVoteTargetId, villageIdiotAlreadySpared)`
-— fonction **pure** de `day/domain`. Le narrateur compte les mains levées et saisit des
-totaux ; le moteur en tire une élimination.
-
-1. Les voix portées sur un mort sont ignorées.
-2. **Le vote du Capitaine compte double** : le total saisi contient déjà sa main levée,
-   désigner sa cible ajoute donc **une** voix supplémentaire.
-3. Majorité nette → le joueur en tête est éliminé.
-4. Égalité → dans l'ordre :
-   1. un **Bouc émissaire** vivant est éliminé à la place (c'est tout son rôle) ;
-   2. sinon la voix du **Capitaine** tranche, si sa cible fait partie des ex æquo ;
-   3. sinon l'égalité reste non résolue : personne n'est éliminé, et le narrateur
-      décide (revote, ou journée blanche).
-5. L'**Idiot du Village** désigné par le vote est démasqué mais **survit** — une seule
-   fois dans la partie ; ensuite il est éliminé comme tout le monde.
+1. Collecte des attaques létales : loups, potion de mort, Loup Blanc, vote du village,
+   tir du Chasseur.
+2. Application des protections : Salvateur (`guardProtect`) et potion de vie
+   (`witchHeal`) annulent l'attaque des loups ; la potion de mort et le vote ne sont
+   **pas** protégeables.
+3. Cascade des amoureux : la mort d'un amoureux entraîne celle de l'autre (chagrin),
+   récursivement.
+4. Production du `NightOutcome` : morts (avec cause), sauvetages, nouveaux couples,
+   révélations de la Voyante, joueurs charmés.
+5. Le repository applique ensuite l'outcome : `isAlive`, `deathNightNumber`,
+   `deathCause`, `coupledWithPlayerId`, `isCharmed`.
 
 ---
 
-## 5 bis. Moteur de fin de partie *(v2)*
-
-`VictoryEngine.evaluate(players) → VictoryResult?` — fonction **pure**, sans base ni
-widget, testée seule.
-
-Le moteur est une **liste ordonnée de règles** (`VictoryRule`) plutôt qu'une cascade de
-`if` : ajouter un rôle solo avec sa propre condition de victoire = ajouter un objet à la
-liste. La position dans la liste *est* la priorité.
-
-| Ordre | Règle | Condition | Vainqueur |
-|-------|-------|-----------|-----------|
-| 1 | `nobodyLeft` | plus aucun survivant | Personne (la partie s'arrête quand même) |
-| 2 | `mixedLovers` | les 2 derniers survivants sont un couple de camps différents | Les Amoureux |
-| 3 | `angel` | l'Ange a été éliminé au **tour 1** | L'Ange, seul |
-| 4 | `piper` | le Joueur de Flûte est vivant et tous les autres survivants sont charmés | Le Joueur de Flûte |
-| 5 | `soloSurvivor` | un unique survivant, de camp `solo` | Ce rôle (Loup-Garou Blanc…) |
-| 6 | `village` | plus aucun joueur « côté loup » vivant | Le Village |
-| 7 | `werewolves` | `survivants non-loups <= loups vivants` et au moins un loup vivant | Les Loups-Garous |
-| 8 | `lastStanding` | filet de sécurité : un seul survivant qu'aucune règle ci-dessus ne couvre | Ce survivant |
-
-« Côté loup » = `RoleDefinition.wolfSide`, un drapeau ajouté au catalogue : il est vrai
-pour le Loup-Garou, le Grand Méchant Loup, l'Infect Père des Loups **et** le Loup-Garou
-Blanc, qui joue seul mais chasse avec la meute — le Village ne gagne qu'une fois qu'il est
-mort lui aussi.
-
-### Quand la vérification se déclenche
-
-`VictoryRecorder.refresh(gameId)` est appelé :
-
-- après la résolution d'une nuit (`DriftNightsRepository.resolveNight`) ;
-- après **toute** écriture sur les joueurs (`DriftGamesRepository.savePlayers`), ce qui
-  couvre le vote du village, le tir du Chasseur et les retouches manuelles du narrateur ;
-- après le retrait d'un joueur de la table.
-
-Quand une règle se déclenche, la partie passe en `finished`, le camp et sa justification
-sont écrits sur la ligne `games`, l'écran de partie affiche la bannière de victoire et le
-bouton « Nouvelle nuit » disparaît. `startNight` refuse d'ouvrir un tour sur une partie
-terminée. Reprendre la partie à la main (menu « Reprendre la partie ») efface le
-vainqueur mémorisé : il sera recalculé au prochain mouvement du plateau.
-
----
-
-## 5 quater. La nuit en cartes *(v2)*
+## 8. La nuit en cartes *(v2)*
 
 L'ancien formulaire (choisir une action dans une liste, remplir une boîte de dialogue) a
 disparu. La nuit est désormais une **pile de cartes plein écran** : l'application décide
@@ -506,7 +426,7 @@ d'en empiler une seconde.
 
 ---
 
-## 5 quinquies. La journée *(v2)*
+## 9. La journée *(v2)*
 
 Le jour n'était pas modélisé en v1 : le narrateur enregistrait un `villageVote` au milieu
 des actions de nuit. La V2 en fait une **phase à part entière**, elle aussi en cartes,
@@ -551,7 +471,87 @@ alors « Continuer le jour N » au lieu de « Nouvelle nuit ».
 
 ---
 
-## 5 sexies. Fin de partie et revanche *(v2)*
+## 10. Le Capitaine et le vote du village *(v2)*
+
+### Élection
+
+Le Capitaine est **élu une seule fois**, à l'aube du premier jour, et garde l'écharpe
+jusqu'à sa mort. `NightResolver.availableActions` retire toute action d'effet
+`captain` tant qu'un Capitaine **vivant** est en poste : l'action ne réapparaît que
+lorsque la place est vacante.
+
+Quand le Capitaine meurt, `NightResolver` le signale dans le bilan
+(`NightOutcome.captainDiedId`), `apply` lui retire `isCaptain`, et le résumé affiche
+« Le Capitaine est mort — une nouvelle désignation est nécessaire ». Le narrateur a
+alors deux chemins, tous deux enregistrés dans l'historique :
+
+- `captainSuccession` — le mourant lègue son écharpe à qui il veut (règle officielle
+  du « dernier souffle ») ;
+- `captainElection` — le village revote normalement.
+
+### Vote du village
+
+`VoteResolver.resolve(players, votes, captainVoteTargetId, villageIdiotAlreadySpared)`
+— fonction **pure** de `day/domain`. Le narrateur compte les mains levées et saisit des
+totaux ; le moteur en tire une élimination.
+
+1. Les voix portées sur un mort sont ignorées.
+2. **Le vote du Capitaine compte double** : le total saisi contient déjà sa main levée,
+   désigner sa cible ajoute donc **une** voix supplémentaire.
+3. Majorité nette → le joueur en tête est éliminé.
+4. Égalité → dans l'ordre :
+   1. un **Bouc émissaire** vivant est éliminé à la place (c'est tout son rôle) ;
+   2. sinon la voix du **Capitaine** tranche, si sa cible fait partie des ex æquo ;
+   3. sinon l'égalité reste non résolue : personne n'est éliminé, et le narrateur
+      décide (revote, ou journée blanche).
+5. L'**Idiot du Village** désigné par le vote est démasqué mais **survit** — une seule
+   fois dans la partie ; ensuite il est éliminé comme tout le monde.
+
+---
+
+## 11. Moteur de fin de partie *(v2)*
+
+`VictoryEngine.evaluate(players) → VictoryResult?` — fonction **pure**, sans base ni
+widget, testée seule.
+
+Le moteur est une **liste ordonnée de règles** (`VictoryRule`) plutôt qu'une cascade de
+`if` : ajouter un rôle solo avec sa propre condition de victoire = ajouter un objet à la
+liste. La position dans la liste *est* la priorité.
+
+| Ordre | Règle | Condition | Vainqueur |
+|-------|-------|-----------|-----------|
+| 1 | `nobodyLeft` | plus aucun survivant | Personne (la partie s'arrête quand même) |
+| 2 | `mixedLovers` | les 2 derniers survivants sont un couple de camps différents | Les Amoureux |
+| 3 | `angel` | l'Ange a été éliminé au **tour 1** | L'Ange, seul |
+| 4 | `piper` | le Joueur de Flûte est vivant et tous les autres survivants sont charmés | Le Joueur de Flûte |
+| 5 | `soloSurvivor` | un unique survivant, de camp `solo` | Ce rôle (Loup-Garou Blanc…) |
+| 6 | `village` | plus aucun joueur « côté loup » vivant | Le Village |
+| 7 | `werewolves` | `survivants non-loups <= loups vivants` et au moins un loup vivant | Les Loups-Garous |
+| 8 | `lastStanding` | filet de sécurité : un seul survivant qu'aucune règle ci-dessus ne couvre | Ce survivant |
+
+« Côté loup » = `RoleDefinition.wolfSide`, un drapeau ajouté au catalogue : il est vrai
+pour le Loup-Garou, le Grand Méchant Loup, l'Infect Père des Loups **et** le Loup-Garou
+Blanc, qui joue seul mais chasse avec la meute — le Village ne gagne qu'une fois qu'il est
+mort lui aussi.
+
+### Quand la vérification se déclenche
+
+`VictoryRecorder.refresh(gameId)` est appelé :
+
+- après la résolution d'une nuit (`DriftNightsRepository.resolveNight`) ;
+- après **toute** écriture sur les joueurs (`DriftGamesRepository.savePlayers`), ce qui
+  couvre le vote du village, le tir du Chasseur et les retouches manuelles du narrateur ;
+- après le retrait d'un joueur de la table.
+
+Quand une règle se déclenche, la partie passe en `finished`, le camp et sa justification
+sont écrits sur la ligne `games`, l'écran de partie affiche la bannière de victoire et le
+bouton « Nouvelle nuit » disparaît. `startNight` refuse d'ouvrir un tour sur une partie
+terminée. Reprendre la partie à la main (menu « Reprendre la partie ») efface le
+vainqueur mémorisé : il sera recalculé au prochain mouvement du plateau.
+
+---
+
+## 12. Fin de partie et revanche *(v2)*
 
 L'écran de victoire (`victory/presentation/victory_screen.dart`) affiche le camp
 vainqueur avec sa couleur, la phrase qui explique la victoire, la liste des survivants et
@@ -574,7 +574,7 @@ est un point de départ, pas un moule.
 
 ---
 
-## 6. Flux de données
+## 13. Flux de données
 
 ```
 Widget ──watch──► StreamProvider/AsyncNotifier (Riverpod)
@@ -601,7 +601,7 @@ WidgetsFlutterBinding.ensureInitialized()
 
 ---
 
-## 7. Décisions d'architecture
+## 14. Décisions d'architecture
 
 | # | Décision | Raison |
 |---|----------|--------|
@@ -616,28 +616,28 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D9** | L'en-tête de l'export est passé en **AAD** au chiffrement GCM | Sans cela, un attaquant pourrait réécrire `iterations` ou `version` sans invalider le tag. L'AAD est reconstruit champ par champ, pas depuis le texte JSON, pour qu'un reformatage du fichier ne casse pas un import légitime. |
 | **D10** | L'import **régénère tous les identifiants** | Permet d'importer deux fois le même fichier, et garantit qu'un import n'écrase jamais une partie déjà présente. Les couples, les actions et les bilans stockés sont remappés en conséquence. |
 | **D11** | Le Capitaine, les charmes et les rôles modifiés sont appliqués par `NightResolver.apply` | Une seule fonction décrit l'effet d'un tour sur le plateau ; le repository n'est plus qu'une traduction en SQL. |
-| **D29** | « Rejouer » **crée une nouvelle partie** au lieu de réinitialiser l'ancienne | Une partie terminée est une archive : l'historique, les bilans et les rôles révélés doivent rester consultables. Réinitialiser les lignes existantes les détruirait. |
-| **D27** | La journée est une **phase résolue séparément**, pas des actions glissées dans la nuit | Le réveil doit annoncer des morts déjà appliqués au plateau, et le vote doit se compter sur les vivants du matin. Un `DayResolver` séparé aurait dupliqué `NightResolver` : les conséquences (protections, chagrin, capitaine, changements de rôle) sont les mêmes. Le même moteur est donc appelé deux fois, filtré par `phase` — une seule description des règles, deux moments d'application. |
-| **D28** | Le chronomètre et le retour sonore n'utilisent **aucun paquet** | `Timer.periodic`, `HapticFeedback.vibrate()` et `SystemSound.play()` viennent du SDK. Aucun paquet audio, donc aucune permission ajoutée au manifeste et la garantie « zéro réseau » reste vraie sans nouvel audit. |
+| **D12** | Les tests de widgets démontent l'arbre **dans** le corps du test | Drift planifie un timer à durée nulle en annulant un stream ; le laisser au teardown fait échouer l'invariant « A Timer is still pending ». Voir SETUP_LOG.md, problème n°2. |
+| **D13** | La détection de victoire est une **liste de règles ordonnée**, pas un `if/else` village-vs-loups | Les rôles solitaires (Loup Blanc, Joueur de Flûte, Ange) ont chacun leur propre condition ; les ajouter ne doit pas rouvrir le moteur. La priorité des Amoureux mixtes est simplement leur position dans la liste. |
+| **D14** | Une partie **sans aucun Loup-Garou** se termine dès la première vérification par une victoire du Village | Le brief demande de ne jamais laisser tourner une partie qui ne peut plus se terminer. La règle officielle est « le Village gagne dès que le dernier loup est éliminé » : avec zéro loup, cette condition est vraie d'emblée. Le libellé annoncé est alors « Aucun Loup-Garou ne menace le village », pour ne pas laisser croire qu'un loup a été tué. L'écran de création affiche en plus un avertissement quand la table ne compte aucun loup — la partie n'est jamais bloquée, mais le narrateur est prévenu. |
+| **D15** | `VictoryRecorder` (couche `data` de `victory`) est appelé par les repositories `games` et `nights` | Exception assumée à « aucun repository ne dépend d'une autre feature » : la fin de partie est une règle transverse qui doit s'appliquer **quel que soit** le chemin d'écriture. Les dépendances restent à sens unique (`games`/`nights` → `victory`), sans cycle, et le moteur reste pur et testable seul. |
+| **D16** | La table « loups par joueurs » et les seuils de rôles vivent dans le **catalogue** (`dealCopies`, `minPlayers`) et dans `RoleDealer`, pas dans l'UI | Ajouter un rôle = une entrée dans `role.dart` ; le distributeur le prend en compte sans être modifié. |
+| **D17** | Le Loup-Garou Blanc occupe une place **du quota** de loups, pas une place en plus | Il chasse avec la meute (`wolfSide`) : lui donner un siège supplémentaire déséquilibrerait la table par rapport à la règle de parité. |
+| **D18** | La composition est une **table dédiée** (`game_role_selections`), pas une colonne JSON sur `games` | C'est un ensemble de clés vers le catalogue : SQLite sait faire des ensembles, et une ligne par rôle permet de filtrer/joindre sans désérialiser. Le `ON DELETE CASCADE` nettoie tout seul. |
+| **D19** | Aucune ligne de composition = **catalogue entier**, jamais « aucun rôle » | Les parties créées par la v1 n'ont pas de composition : les lire comme « vide » reviendrait à leur retirer des rôles qu'elles utilisent déjà. |
+| **D20** | Le total saisi par le narrateur **contient déjà** la main du Capitaine ; désigner sa cible ajoute une seule voix | Le narrateur compte les mains levées : la sienne comprise. Ajouter 2 compterait le Capitaine trois fois. L'écran l'annonce explicitement (« son vote compte double : +1 voix »). |
+| **D21** | L'égalité est tranchée par le **Bouc émissaire avant** le Capitaine | Règle officielle : le Bouc émissaire existe précisément pour ça ; la voix prépondérante du Capitaine ne sert que lorsqu'il n'est pas en jeu. |
+| **D22** | L'immunité de l'Idiot du Village est **une fois par partie**, calculée depuis l'historique (`villageIdiotSpared`) | Le catalogue décrit déjà la règle ; la modéliser sans état supplémentaire sur `players` évite une migration, et l'historique garde la trace du moment où il a été démasqué. |
 | **D23** | La pile de cartes est **maison** (`SwipeCardStack`), sans package de swipe | Un `PageView` ne sait pas faire dépasser la carte suivante derrière la carte courante, et l'app garantit qu'aucune dépendance ne touche au réseau : moins de dépendances, moins de surface à auditer. ~150 lignes de `Transform` et un `AnimationController`. |
 | **D24** | L'ordre de réveil place la **Voyante avant les Loups** | C'est l'ordre du livret officiel (Voleur, Cupidon, Amoureux, Voyante, Loups, Sorcière) : la Voyante ne doit pas savoir qui a été dévoré. Le brief de la V2 citait l'ordre inverse en exemple, mais l'instruction principale était de reprendre l'ordre canonique du jeu de société, et l'ordre n'a aucun effet sur la résolution — seule la Sorcière **doit** passer après les loups, ce qui est respecté. |
 | **D25** | Un tour est désormais **deux moitiés résolues séparément** (`resolvedAt` / `dayResolvedAt`), et chaque action porte sa `phase` | La nuit doit être appliquée au plateau avant que le jour commence (le réveil annonce les morts). Rejouer les actions de nuit au moment du vote fausserait le bilan du jour ; la colonne `phase` rend la séparation explicite, y compris pour le tir du Chasseur qui peut arriver dans les deux. |
 | **D26** | Le Salvateur ne peut pas protéger le même joueur deux nuits de suite | La règle officielle existe, le catalogue la décrit déjà, et l'information nécessaire (la protection de la nuit précédente) est une requête d'une ligne. La contrainte est appliquée par filtrage des cibles, avec la raison affichée sur la carte. |
-| **D20** | Le total saisi par le narrateur **contient déjà** la main du Capitaine ; désigner sa cible ajoute une seule voix | Le narrateur compte les mains levées : la sienne comprise. Ajouter 2 compterait le Capitaine trois fois. L'écran l'annonce explicitement (« son vote compte double : +1 voix »). |
-| **D21** | L'égalité est tranchée par le **Bouc émissaire avant** le Capitaine | Règle officielle : le Bouc émissaire existe précisément pour ça ; la voix prépondérante du Capitaine ne sert que lorsqu'il n'est pas en jeu. |
-| **D22** | L'immunité de l'Idiot du Village est **une fois par partie**, calculée depuis l'historique (`villageIdiotSpared`) | Le catalogue décrit déjà la règle ; la modéliser sans état supplémentaire sur `players` évite une migration, et l'historique garde la trace du moment où il a été démasqué. |
-| **D18** | La composition est une **table dédiée** (`game_role_selections`), pas une colonne JSON sur `games` | C'est un ensemble de clés vers le catalogue : SQLite sait faire des ensembles, et une ligne par rôle permet de filtrer/joindre sans désérialiser. Le `ON DELETE CASCADE` nettoie tout seul. |
-| **D19** | Aucune ligne de composition = **catalogue entier**, jamais « aucun rôle » | Les parties créées par la v1 n'ont pas de composition : les lire comme « vide » reviendrait à leur retirer des rôles qu'elles utilisent déjà. |
-| **D16** | La table « loups par joueurs » et les seuils de rôles vivent dans le **catalogue** (`dealCopies`, `minPlayers`) et dans `RoleDealer`, pas dans l'UI | Ajouter un rôle = une entrée dans `role.dart` ; le distributeur le prend en compte sans être modifié. |
-| **D17** | Le Loup-Garou Blanc occupe une place **du quota** de loups, pas une place en plus | Il chasse avec la meute (`wolfSide`) : lui donner un siège supplémentaire déséquilibrerait la table par rapport à la règle de parité. |
-| **D13** | La détection de victoire est une **liste de règles ordonnée**, pas un `if/else` village-vs-loups | Les rôles solitaires (Loup Blanc, Joueur de Flûte, Ange) ont chacun leur propre condition ; les ajouter ne doit pas rouvrir le moteur. La priorité des Amoureux mixtes est simplement leur position dans la liste. |
-| **D14** | Une partie **sans aucun Loup-Garou** se termine dès la première vérification par une victoire du Village | Le brief demande de ne jamais laisser tourner une partie qui ne peut plus se terminer. La règle officielle est « le Village gagne dès que le dernier loup est éliminé » : avec zéro loup, cette condition est vraie d'emblée. Le libellé annoncé est alors « Aucun Loup-Garou ne menace le village », pour ne pas laisser croire qu'un loup a été tué. L'écran de création affiche en plus un avertissement quand la table ne compte aucun loup — la partie n'est jamais bloquée, mais le narrateur est prévenu. |
-| **D15** | `VictoryRecorder` (couche `data` de `victory`) est appelé par les repositories `games` et `nights` | Exception assumée à « aucun repository ne dépend d'une autre feature » : la fin de partie est une règle transverse qui doit s'appliquer **quel que soit** le chemin d'écriture. Les dépendances restent à sens unique (`games`/`nights` → `victory`), sans cycle, et le moteur reste pur et testable seul. |
-| **D12** | Les tests de widgets démontent l'arbre **dans** le corps du test | Drift planifie un timer à durée nulle en annulant un stream ; le laisser au teardown fait échouer l'invariant « A Timer is still pending ». Voir SETUP_LOG.md, problème n°2. |
+| **D27** | La journée est une **phase résolue séparément**, pas des actions glissées dans la nuit | Le réveil doit annoncer des morts déjà appliqués au plateau, et le vote doit se compter sur les vivants du matin. Un `DayResolver` séparé aurait dupliqué `NightResolver` : les conséquences (protections, chagrin, capitaine, changements de rôle) sont les mêmes. Le même moteur est donc appelé deux fois, filtré par `phase` — une seule description des règles, deux moments d'application. |
+| **D28** | Le chronomètre et le retour sonore n'utilisent **aucun paquet** | `Timer.periodic`, `HapticFeedback.vibrate()` et `SystemSound.play()` viennent du SDK. Aucun paquet audio, donc aucune permission ajoutée au manifeste et la garantie « zéro réseau » reste vraie sans nouvel audit. |
+| **D29** | « Rejouer » **crée une nouvelle partie** au lieu de réinitialiser l'ancienne | Une partie terminée est une archive : l'historique, les bilans et les rôles révélés doivent rester consultables. Réinitialiser les lignes existantes les détruirait. |
 
 ---
 
-## 8. Sécurité
+## 15. Sécurité
 
 - 🔒 **DB chiffrée** SQLCipher AES-256 ; le fichier `.db` est illisible hors de l'app.
 - 🔑 **Clé** : 32 octets de `Random.secure()`, générés au premier lancement, stockés
@@ -651,7 +651,7 @@ WidgetsFlutterBinding.ensureInitialized()
 
 ---
 
-## 9. Roadmap
+## 16. Roadmap
 
 - [x] **E0 — Setup** : SDK Flutter, scaffold du projet, dépendances, lints
 - [x] **E1 — Noyau sécurité & DB** : `KeyStore`, ouverture SQLCipher, tables Drift
@@ -667,54 +667,31 @@ WidgetsFlutterBinding.ensureInitialized()
 - [x] **E11 — Archivage / suppression** de partie
 - [x] **E12 — Finalisation** : `flutter analyze` clean, 129 tests verts, APK release, docs
 
+### Version 2.0.0
+
+- [x] **V2-1 — Détection de victoire** : moteur de règles ordonné et extensible, camp
+      vainqueur persisté (`schemaVersion` 2), écran de victoire, plus aucune nuit
+      ouvrable sur une partie terminée
+- [x] **V2-2 — Distribution aléatoire** : table officielle loups/joueurs, seuils par
+      rôle, rôles uniques, redistribution à volonté
+- [x] **V2-3 — Composition de partie** : rôles autorisés par partie
+      (`schemaVersion` 3), réutilisée par le randomiseur et par la revanche
+- [x] **V2-4 — Capitaine** : élection unique, vote double, égalité tranchée,
+      mort → désignation d'un successeur ou réélection
+- [x] **V2-5 — Nuit en cartes** : séquence canonique calculée, pile swipable maison,
+      une carte par rôle actif, aucun formulaire (`schemaVersion` 4)
+- [x] **V2-6 — Phase de jour** : réveil, élection, chronomètre de débat, vote pondéré,
+      conséquences en cascade
+- [x] **V2-7 — Victoire & revanche** : écran de fin, rejouer avec les mêmes joueurs
+- [x] **V2-8 — Finalisation** : export chiffré étendu (payload v2), test hors-ligne
+      élargi aux nouvelles dépendances, `flutter analyze` clean, tests verts, APK release
+
 ### Pistes pour une version ultérieure
 
-Hors périmètre du MVP, notées ici pour ne pas être oubliées :
+Hors périmètre, notées ici pour ne pas être oubliées :
 
-- Détection automatique des conditions de victoire (village / loups / solitaires).
-- Minuteur de tour de parole pour les débats du village.
-- Rappel des pouvoirs passifs au bon moment (Ancien, Idiot du village, Chevalier).
+- Rappel des pouvoirs passifs au bon moment (Ancien, Chevalier, Montreur d'ours).
+- Le Juge bègue (second vote) et la Servante dévouée, pour l'instant sans carte de jour.
 - Signature de release avec un keystore dédié (aujourd'hui la clé de debug).
-- Sauvegarde chiffrée automatique après chaque nuit.
-
----
-
-## 10. Plan de la version 2.0
-
-La V2 corrige un bug bloquant (aucune détection de fin de partie) et refond le tour de
-jeu en un parcours guidé : **nuit en cartes swipables → phase de jour → vote → victoire**.
-
-### 10.1 Ordre de livraison
-
-| # | Lot | Contenu | Migration |
-|---|-----|---------|-----------|
-| **V2-1** | 🐞 Détection de victoire | moteur de règles extensible, camp vainqueur persisté, écran de victoire, plus aucune action quand la partie est finie | `schemaVersion` 1 → 2 |
-| **V2-2** | 🎲 Distribution aléatoire | table de correspondance loups/joueurs, rôles uniques, seuils par rôle | — |
-| **V2-3** | ✅ Composition de partie | choix des rôles autorisés, réutilisé par le randomiseur et par « Nouvelle partie » | 2 → 3 |
-| **V2-4** | ⭐ Capitaine | élection unique, vote double, mort → désignation ou réélection | — |
-| **V2-5** | 🃏 Nuit en cartes | séquence ordonnée calculée, pile de cartes swipables, une carte par rôle actif | 3 → 4 |
-| **V2-6** | ☀️ Phase de jour | réveil, élection, chronomètre, vote pondéré, conséquences | — |
-| **V2-7** | 🏆 Victoire & rejouer | écran de victoire complet, « Nouvelle partie » avec les mêmes joueurs | — |
-
-### 10.2 Nouvelles features (mêmes couches que `games` / `nights`)
-
-```
-lib/features/
-├── victory/
-│   ├── domain/  victory_entities.dart · victory_engine.dart (pur, extensible)
-│   ├── data/    victory_recorder.dart  (écrit le camp vainqueur sur `games`)
-│   └── presentation/ victory_screen.dart
-└── day/
-    ├── domain/  day_entities.dart · vote_resolver.dart (vote pondéré + égalité)
-    └── presentation/ day_screen.dart + cartes du jour
-```
-
-### 10.3 Migrations prévues
-
-- **v2** — `games.winnerCampId`, `games.winnerReason` (camp vainqueur mémorisé).
-- **v3** — table `game_role_selections` (rôles autorisés pour une partie).
-- **v4** — `night_actions.phase` (nuit/jour, pour résoudre les deux phases séparément),
-  `nights.dayResolvedAt`, `nights.daySummaryJson`.
-
-Chaque étape ajoute une branche dans `onUpgrade` ; aucune table n'est recréée, aucune
-partie existante n'est perdue.
+- Sauvegarde chiffrée automatique après chaque tour.
+- Mode « écran retourné » pour montrer une carte à un joueur sans que la table la voie.

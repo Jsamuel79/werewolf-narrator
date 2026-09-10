@@ -294,3 +294,58 @@ réseau » reste vérifiable en lisant la liste des paquets, et le widget est co
 `SystemSound.play(SystemSoundType.alert)` de `package:flutter/services.dart` pour la fin
 du temps imparti. Aucun paquet audio n'est nécessaire, donc aucune permission
 supplémentaire dans le manifeste Android.
+
+### Choix technique — pas de `DayResolver` séparé
+
+La phase de jour aurait pu recevoir son propre moteur. Elle applique pourtant exactement
+les mêmes conséquences que la nuit : protections, cumul d'attaques, cascade de chagrin
+entre amoureux, changements de rôle, écharpe du Capitaine. Un second moteur aurait
+dupliqué ces règles, avec la garantie qu'elles finiraient par diverger.
+
+**Retenu** : `NightResolver` est appelé **deux fois par tour**, filtré par la nouvelle
+colonne `night_actions.phase`. Une seule description des règles, deux moments
+d'application (`resolveNight` / `resolveDay`).
+
+### ⚠️ Problème n°4 — la V1 rendait les vieux tours incomplets
+
+Découper un tour en deux moitiés (`resolvedAt` pour la nuit, `dayResolvedAt` pour le
+jour) casse les parties existantes : un tour clos par la 1.0.0 n'a pas de
+`dayResolvedAt`, il serait donc lu comme « en attente de sa journée », et
+`startNight` renverrait éternellement le même tour au lieu d'en ouvrir un nouveau.
+
+**Résolution** — la migration v4 recopie la valeur :
+
+```sql
+UPDATE nights SET day_resolved_at = resolved_at WHERE resolved_at IS NOT NULL
+```
+
+C'est sémantiquement exact : en 1.0.0, un tour couvrait déjà la nuit **et** le vote du
+lendemain (décision D2). Un test reconstruit une base au format 1.0.0 avec `sqlite3`
+directement, l'ouvre avec le schéma courant, et vérifie que la partie, ses joueurs, ses
+tours et leurs actions ont survécu.
+
+### ⚠️ Problème n°5 — tests de widgets et cartes plus hautes que l'écran
+
+Les cartes de nuit et de jour dépassent la surface de test (600 × 800) : `tester.tap()`
+échouait avec « would not hit test on the specified widget » sur les boutons du bas.
+
+**Résolution** — un helper `tapVisible()` dans les tests, qui appelle
+`tester.ensureVisible(finder)` avant de taper. Le contenu de chaque carte est déjà dans
+un `SingleChildScrollView`, donc le comportement réel sur téléphone est correct ; c'est
+uniquement la taille de la surface de test qui demandait ce détour.
+
+À noter aussi : la pile dessine la **carte suivante derrière** la carte courante, si bien
+qu'un `find.widgetWithText(...)` peut trouver deux occurrences. Les tests visent alors
+`.last` — la carte du dessus — avec un commentaire qui l'explique.
+
+### État de fin de session V2
+
+| Vérification | Résultat |
+|--------------|----------|
+| `flutter analyze` | ✅ aucun problème |
+| `flutter test` | ✅ 245 tests verts |
+| `flutter build apk --release` | ✅ `app-release.apk`, 72,4 Mo |
+| Dépendances ajoutées | ✅ **aucune** — tout est bâti sur le SDK |
+| Migrations | ✅ 1 → 2 → 3 → 4, par ajout uniquement, testées sur une base 1.0.0 |
+
+Aucun blocage technique n'a nécessité de contournement pendant cette session.

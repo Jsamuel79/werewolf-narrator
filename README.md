@@ -1,9 +1,12 @@
 # 🐺 Werewolf Narrator
 
-Application Flutter **100 % hors ligne** pour aider le narrateur d'une partie de
-**Loup-Garou** à ne rien oublier : qui a quel rôle, qui a tué qui, qui protège
-qui, qui est amoureux de qui, ce que la Voyante a vu, et le déroulé complet de
-chaque nuit.
+Application Flutter **100 % hors ligne** qui **guide** le narrateur d'une partie de
+**Loup-Garou** tour après tour : elle appelle les rôles dans l'ordre, enregistre ce que
+chacun fait, calcule les conséquences, mène le vote du village et annonce le vainqueur.
+
+La nuit se joue en **cartes que l'on balaie** — une carte par rôle, dans l'ordre du
+livret — et la journée enchaîne réveil, élection du Capitaine, chronomètre de débat et
+vote.
 
 Toutes les données restent sur le téléphone, dans une base **SQLite chiffrée en
 AES-256 (SQLCipher)**.
@@ -16,9 +19,14 @@ AES-256 (SQLCipher)**.
 |---|---|
 | 🏠 **Accueil** | Parties en cours et parties archivées, en un coup d'œil |
 | 🎲 **Création** | Nommez la partie, installez les joueurs, distribuez les rôles |
+| ✅ **Composition** | Choisissez les rôles autorisés dans cette partie ; la sélection est mémorisée pour la suivante |
+| 🎰 **Distribution aléatoire** | Un bouton, et toute la table est servie : bon nombre de loups, rôles uniques, seuils par rôle. Redistribuable, et modifiable à la main |
 | 🃏 **26 rôles** | Villageois, Voyante, Sorcière, Chasseur, Cupidon, Salvateur, Petite Fille, Voleur, Ancien, Renard, Corbeau, Loup-Garou Blanc, Joueur de Flûte, Ange… |
-| 🌙 **Écran de nuit** | Formulaire qui ne propose que les actions des rôles **encore en vie** |
-| ⚖️ **Résolution automatique** | Protections, potions, cumul d'attaques, **cascade de chagrin** entre amoureux, infections, élection du Capitaine |
+| 🌙 **Nuit en cartes** | Une carte plein écran par rôle vivant, dans l'ordre de réveil officiel. Balayez pour passer, revenez en arrière pour corriger |
+| ☀️ **Phase de jour** | Réveil, élection du Capitaine, chronomètre de débat, vote du village, tir du Chasseur |
+| ⭐ **Capitaine** | Élu une seule fois, sa voix compte double et tranche les égalités ; à sa mort, successeur désigné ou nouvelle élection |
+| ⚖️ **Résolution automatique** | Protections, potions, cumul d'attaques, **cascade de chagrin** entre amoureux, infections |
+| 🏆 **Fin de partie** | Détection automatique du vainqueur (Village, Loups, Amoureux mixtes, rôles solitaires) et écran de victoire, puis « rejouer avec les mêmes joueurs » |
 | 📜 **Historique** | Chronologie complète : chaque tour, chaque action horodatée, chaque bilan |
 | 🔐 **Export chiffré** | JSON protégé par mot de passe (AES-256-GCM), partageable |
 | 📥 **Import** | Rechargez un export sur n'importe quel appareil |
@@ -59,7 +67,7 @@ flutter run
 
 ```bash
 flutter analyze   # doit être vide
-flutter test      # 129 tests
+flutter test      # 245 tests
 ```
 
 ### Build APK
@@ -94,6 +102,7 @@ flutter build apk --release --split-per-abi
 | Stockage de la clé | `flutter_secure_storage` (Keystore / Keychain) |
 | Export chiffré | `encrypt` (AES-GCM) + `pointycastle` (PBKDF2) |
 | Partage / import | `share_plus`, `file_picker` |
+| Cartes balayables & chronomètre | SDK Flutter seul (`GestureDetector`, `Transform`, `Timer`, `HapticFeedback`) |
 | Tests | `flutter_test`, `mocktail`, base Drift en mémoire |
 
 ---
@@ -106,8 +115,10 @@ lib/
 ├── app.dart               # MaterialApp, thème, locale française
 ├── core/                  # base de données, sécurité, thème, utilitaires
 └── features/
-    ├── games/             # parties, joueurs, rôles
-    ├── nights/            # nuits, actions, moteur de résolution
+    ├── games/             # parties, joueurs, rôles, composition, distribution
+    ├── nights/            # nuit en cartes, actions, moteur de résolution
+    ├── day/               # réveil, capitaine, débat, vote du village
+    ├── victory/           # règles de fin de partie et écran de victoire
     ├── history/           # chronologie d'une partie
     └── export/            # export / import chiffré
 ```
@@ -128,7 +139,8 @@ de base, décisions d'architecture, flux de données — est dans
   code, jamais versionnée.
 - **Zéro réseau** : la permission `INTERNET` n'est **pas** déclarée dans le
   manifeste de release, et aucun paquet utilisé n'appelle le réseau. Un test
-  automatisé empêche la régression.
+  automatisé épingle la liste des paquets embarqués : en ajouter un demande de
+  mettre ce test à jour, et donc de justifier le paquet.
 - **Export** : AES-256-GCM, clé dérivée du mot de passe par PBKDF2-HMAC-SHA256
   (150 000 itérations, sel et nonce aléatoires). Aucun export en clair n'est
   possible ; un mauvais mot de passe est rejeté au lieu de produire n'importe
