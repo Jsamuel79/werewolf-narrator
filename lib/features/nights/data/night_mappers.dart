@@ -13,6 +13,12 @@ extension NightRowMapper on NightRow {
         : NightOutcome.fromJson(
             NightAction.decodeDetails(summaryJson),
           ),
+    dayResolvedAt: dayResolvedAt,
+    dayOutcome: daySummaryJson == null
+        ? null
+        : NightOutcome.fromJson(
+            NightAction.decodeDetails(daySummaryJson),
+          ),
   );
 }
 
@@ -22,6 +28,7 @@ extension NightActionRowMapper on NightActionRow {
     nightId: nightId,
     gameId: gameId,
     typeId: type,
+    phase: NightAction.phaseFromId(phase),
     actorPlayerId: actorPlayerId,
     targetPlayerId: targetPlayerId,
     secondaryTargetPlayerId: secondaryTargetPlayerId,

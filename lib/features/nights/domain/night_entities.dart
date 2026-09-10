@@ -11,6 +11,7 @@ class NightAction {
     required this.typeId,
     required this.orderIndex,
     required this.createdAt,
+    this.phase = ActionPhase.night,
     this.actorPlayerId,
     this.targetPlayerId,
     this.secondaryTargetPlayerId,
@@ -21,6 +22,9 @@ class NightAction {
   final String nightId;
   final String gameId;
   final String typeId;
+
+  /// Which half of the round recorded this action.
+  final ActionPhase phase;
   final String? actorPlayerId;
   final String? targetPlayerId;
   final String? secondaryTargetPlayerId;
@@ -29,6 +33,14 @@ class NightAction {
   final DateTime createdAt;
 
   NightActionType get type => NightActionTypes.byId(typeId);
+
+  static ActionPhase phaseFromId(String? id) => switch (id) {
+    'day' => ActionPhase.day,
+    _ => ActionPhase.night,
+  };
+
+  static String phaseId(ActionPhase phase) =>
+      phase == ActionPhase.day ? 'day' : 'night';
 
   String? get detail => details['text'] as String?;
 
@@ -163,16 +175,29 @@ class Night {
     required this.createdAt,
     this.resolvedAt,
     this.outcome,
+    this.dayResolvedAt,
+    this.dayOutcome,
   });
 
   final String id;
   final String gameId;
   final int nightNumber;
   final DateTime createdAt;
+
+  /// Set when the night phase was closed and applied to the board.
   final DateTime? resolvedAt;
   final NightOutcome? outcome;
 
+  /// Set when the day that follows (debate, election, vote) was closed too.
+  final DateTime? dayResolvedAt;
+  final NightOutcome? dayOutcome;
+
   bool get isResolved => resolvedAt != null;
+
+  bool get isDayResolved => dayResolvedAt != null;
+
+  /// A round is over when both of its halves are.
+  bool get isComplete => isResolved && isDayResolved;
 }
 
 /// A night together with the actions recorded in it.

@@ -157,9 +157,39 @@ void main() {
           death_cause TEXT,
           notes TEXT
         )''')
+      ..execute('''
+        CREATE TABLE nights (
+          id TEXT NOT NULL PRIMARY KEY,
+          game_id TEXT NOT NULL REFERENCES games (id) ON DELETE CASCADE,
+          night_number INTEGER NOT NULL,
+          created_at INTEGER NOT NULL,
+          resolved_at INTEGER,
+          summary_json TEXT,
+          UNIQUE (game_id, night_number)
+        )''')
+      ..execute('''
+        CREATE TABLE night_actions (
+          id TEXT NOT NULL PRIMARY KEY,
+          night_id TEXT NOT NULL REFERENCES nights (id) ON DELETE CASCADE,
+          game_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          actor_player_id TEXT,
+          target_player_id TEXT,
+          secondary_target_player_id TEXT,
+          details_json TEXT,
+          order_index INTEGER NOT NULL,
+          created_at INTEGER NOT NULL
+        )''')
       ..execute(
         "INSERT INTO games VALUES ('old', 'Vieille partie', 1, 1, "
         "'inProgress', 0, NULL)",
+      )
+      ..execute(
+        "INSERT INTO nights VALUES ('n1', 'old', 1, 1, 2, NULL)",
+      )
+      ..execute(
+        "INSERT INTO night_actions VALUES ('a1', 'n1', 'old', "
+        "'werewolfVictim', NULL, 'p1', NULL, NULL, 0, 1)",
       )
       ..execute(
         "INSERT INTO players VALUES ('p1', 'old', 'Alice', 'villager', 0, "
@@ -174,6 +204,18 @@ void main() {
     expect(rows.single.name, 'Vieille partie');
     expect(rows.single.winnerCampId, isNull);
     expect(await migrated.select(migrated.players).get(), hasLength(1));
+
+    // A round closed by the old build counts as complete, day included.
+    final night = (await migrated.select(migrated.nights).get()).single;
+    expect(night.resolvedAt, isNotNull);
+    expect(
+      night.dayResolvedAt,
+      night.resolvedAt,
+      reason: 'an old round covered the night and the vote that followed',
+    );
+    // And its actions default to the night phase.
+    final action = (await migrated.select(migrated.nightActions).get()).single;
+    expect(action.phase, 'night');
     await migrated.close();
     await directory.delete(recursive: true);
   });

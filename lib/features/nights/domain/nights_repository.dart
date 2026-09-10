@@ -1,3 +1,4 @@
+import 'night_action_type.dart';
 import 'night_entities.dart';
 
 abstract interface class NightsRepository {
@@ -17,6 +18,7 @@ abstract interface class NightsRepository {
   Future<NightAction> addAction({
     required String nightId,
     required String typeId,
+    ActionPhase phase,
     String? actorPlayerId,
     String? targetPlayerId,
     String? secondaryTargetPlayerId,
@@ -25,8 +27,19 @@ abstract interface class NightsRepository {
 
   Future<void> removeAction(String actionId);
 
-  /// Applies the round to the board and freezes it.
+  /// Applies the night half of the round to the board and freezes it.
   Future<NightOutcome> resolveNight(String nightId);
+
+  /// Applies the day half — vote, election, hunter's shot — and closes the
+  /// round for good.
+  Future<NightOutcome> resolveDay(String nightId);
+
+  /// Who the Salvateur protected during the previous night, so he cannot
+  /// protect them twice in a row.
+  Future<String?> lastGuardedPlayerId({
+    required String gameId,
+    required int beforeNightNumber,
+  });
 
   Future<void> deleteNight(String nightId);
 

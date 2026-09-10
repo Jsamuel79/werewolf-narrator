@@ -265,3 +265,32 @@ téléphone, mais il faudra un keystore dédié pour une publication.
 > 💡 `flutter build apk --split-per-abi` produit trois APK d'environ 24 Mo au
 > lieu d'un seul de 72 Mo, si la taille compte.
 
+---
+
+## 2026-09-10 — Session V2
+
+### Choix technique — la pile de cartes de la nuit, sans package
+
+Le besoin : une pile de cartes plein écran, balayables, avec la carte suivante qui
+dépasse derrière la carte courante, et des boutons « Précédent » / « Passer » comme
+solution de repli accessible.
+
+Options examinées :
+
+| Option | Verdict |
+|--------|---------|
+| `PageView` du SDK | Gratuit et accessible, mais ne sait pas faire dépasser la carte suivante derrière la carte courante ; l'effet « pile » est perdu. |
+| `flutter_card_swiper` (package) | Fait le travail, mais ajoute une dépendance transitive à auditer alors que le projet garantit qu'**aucun** paquet ne touche au réseau, et le test `offline_guarantee_test.dart` devrait être étendu à ses transitives. |
+| Implémentation maison | ~150 lignes : `GestureDetector` pour le drag, `Transform.translate` + `Transform.rotate` pour la carte du dessus, `Transform.scale` + `Opacity` pour celle de derrière, un `AnimationController` pour l'envol et le retour élastique. |
+
+**Retenu : implémentation maison** (`lib/core/widgets/swipe_card_stack.dart`).
+Aucune dépendance ajoutée à `pubspec.yaml` pendant toute la V2 — la promesse « zéro
+réseau » reste vérifiable en lisant la liste des paquets, et le widget est contrôlé
+(l'index appartient à l'écran), donc testable par des tests de widgets classiques.
+
+### Choix technique — le chronomètre de débat, sans package
+
+`Timer.periodic` du SDK pour le décompte, `HapticFeedback.vibrate()` et
+`SystemSound.play(SystemSoundType.alert)` de `package:flutter/services.dart` pour la fin
+du temps imparti. Aucun paquet audio n'est nécessaire, donc aucune permission
+supplémentaire dans le manifeste Android.

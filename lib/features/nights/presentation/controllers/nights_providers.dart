@@ -53,6 +53,10 @@ final nightContextProvider = StreamProvider.family<NightContext?, NightRef>((
       usedOncePerGameActionIds: await repository.usedOncePerGameActionIds(
         args.gameId,
       ),
+      lastGuardedPlayerId: await repository.lastGuardedPlayerId(
+        gameId: args.gameId,
+        beforeNightNumber: detail.night.nightNumber,
+      ),
     );
   }
 }, isAutoDispose: true);

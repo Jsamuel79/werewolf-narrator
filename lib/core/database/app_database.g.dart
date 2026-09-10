@@ -1394,6 +1394,29 @@ class $NightsTable extends Nights with TableInfo<$NightsTable, NightRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _dayResolvedAtMeta = const VerificationMeta(
+    'dayResolvedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> dayResolvedAt =
+      GeneratedColumn<DateTime>(
+        'day_resolved_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _daySummaryJsonMeta = const VerificationMeta(
+    'daySummaryJson',
+  );
+  @override
+  late final GeneratedColumn<String> daySummaryJson = GeneratedColumn<String>(
+    'day_summary_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1402,6 +1425,8 @@ class $NightsTable extends Nights with TableInfo<$NightsTable, NightRow> {
     createdAt,
     resolvedAt,
     summaryJson,
+    dayResolvedAt,
+    daySummaryJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1462,6 +1487,24 @@ class $NightsTable extends Nights with TableInfo<$NightsTable, NightRow> {
         ),
       );
     }
+    if (data.containsKey('day_resolved_at')) {
+      context.handle(
+        _dayResolvedAtMeta,
+        dayResolvedAt.isAcceptableOrUnknown(
+          data['day_resolved_at']!,
+          _dayResolvedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('day_summary_json')) {
+      context.handle(
+        _daySummaryJsonMeta,
+        daySummaryJson.isAcceptableOrUnknown(
+          data['day_summary_json']!,
+          _daySummaryJsonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1499,6 +1542,14 @@ class $NightsTable extends Nights with TableInfo<$NightsTable, NightRow> {
         DriftSqlType.string,
         data['${effectivePrefix}summary_json'],
       ),
+      dayResolvedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}day_resolved_at'],
+      ),
+      daySummaryJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}day_summary_json'],
+      ),
     );
   }
 
@@ -1520,6 +1571,12 @@ class NightRow extends DataClass implements Insertable<NightRow> {
   /// Serialised `NightOutcome`, stored so past nights render without replaying
   /// the resolver against a player state that has since moved on.
   final String? summaryJson;
+
+  /// Non-null once the day phase (debate, election, vote) is over too.
+  final DateTime? dayResolvedAt;
+
+  /// Serialised `NightOutcome` of the day phase.
+  final String? daySummaryJson;
   const NightRow({
     required this.id,
     required this.gameId,
@@ -1527,6 +1584,8 @@ class NightRow extends DataClass implements Insertable<NightRow> {
     required this.createdAt,
     this.resolvedAt,
     this.summaryJson,
+    this.dayResolvedAt,
+    this.daySummaryJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1540,6 +1599,12 @@ class NightRow extends DataClass implements Insertable<NightRow> {
     }
     if (!nullToAbsent || summaryJson != null) {
       map['summary_json'] = Variable<String>(summaryJson);
+    }
+    if (!nullToAbsent || dayResolvedAt != null) {
+      map['day_resolved_at'] = Variable<DateTime>(dayResolvedAt);
+    }
+    if (!nullToAbsent || daySummaryJson != null) {
+      map['day_summary_json'] = Variable<String>(daySummaryJson);
     }
     return map;
   }
@@ -1556,6 +1621,12 @@ class NightRow extends DataClass implements Insertable<NightRow> {
       summaryJson: summaryJson == null && nullToAbsent
           ? const Value.absent()
           : Value(summaryJson),
+      dayResolvedAt: dayResolvedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dayResolvedAt),
+      daySummaryJson: daySummaryJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(daySummaryJson),
     );
   }
 
@@ -1571,6 +1642,8 @@ class NightRow extends DataClass implements Insertable<NightRow> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       resolvedAt: serializer.fromJson<DateTime?>(json['resolvedAt']),
       summaryJson: serializer.fromJson<String?>(json['summaryJson']),
+      dayResolvedAt: serializer.fromJson<DateTime?>(json['dayResolvedAt']),
+      daySummaryJson: serializer.fromJson<String?>(json['daySummaryJson']),
     );
   }
   @override
@@ -1583,6 +1656,8 @@ class NightRow extends DataClass implements Insertable<NightRow> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'resolvedAt': serializer.toJson<DateTime?>(resolvedAt),
       'summaryJson': serializer.toJson<String?>(summaryJson),
+      'dayResolvedAt': serializer.toJson<DateTime?>(dayResolvedAt),
+      'daySummaryJson': serializer.toJson<String?>(daySummaryJson),
     };
   }
 
@@ -1593,6 +1668,8 @@ class NightRow extends DataClass implements Insertable<NightRow> {
     DateTime? createdAt,
     Value<DateTime?> resolvedAt = const Value.absent(),
     Value<String?> summaryJson = const Value.absent(),
+    Value<DateTime?> dayResolvedAt = const Value.absent(),
+    Value<String?> daySummaryJson = const Value.absent(),
   }) => NightRow(
     id: id ?? this.id,
     gameId: gameId ?? this.gameId,
@@ -1600,6 +1677,12 @@ class NightRow extends DataClass implements Insertable<NightRow> {
     createdAt: createdAt ?? this.createdAt,
     resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
     summaryJson: summaryJson.present ? summaryJson.value : this.summaryJson,
+    dayResolvedAt: dayResolvedAt.present
+        ? dayResolvedAt.value
+        : this.dayResolvedAt,
+    daySummaryJson: daySummaryJson.present
+        ? daySummaryJson.value
+        : this.daySummaryJson,
   );
   NightRow copyWithCompanion(NightsCompanion data) {
     return NightRow(
@@ -1615,6 +1698,12 @@ class NightRow extends DataClass implements Insertable<NightRow> {
       summaryJson: data.summaryJson.present
           ? data.summaryJson.value
           : this.summaryJson,
+      dayResolvedAt: data.dayResolvedAt.present
+          ? data.dayResolvedAt.value
+          : this.dayResolvedAt,
+      daySummaryJson: data.daySummaryJson.present
+          ? data.daySummaryJson.value
+          : this.daySummaryJson,
     );
   }
 
@@ -1626,14 +1715,24 @@ class NightRow extends DataClass implements Insertable<NightRow> {
           ..write('nightNumber: $nightNumber, ')
           ..write('createdAt: $createdAt, ')
           ..write('resolvedAt: $resolvedAt, ')
-          ..write('summaryJson: $summaryJson')
+          ..write('summaryJson: $summaryJson, ')
+          ..write('dayResolvedAt: $dayResolvedAt, ')
+          ..write('daySummaryJson: $daySummaryJson')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, gameId, nightNumber, createdAt, resolvedAt, summaryJson);
+  int get hashCode => Object.hash(
+    id,
+    gameId,
+    nightNumber,
+    createdAt,
+    resolvedAt,
+    summaryJson,
+    dayResolvedAt,
+    daySummaryJson,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1643,7 +1742,9 @@ class NightRow extends DataClass implements Insertable<NightRow> {
           other.nightNumber == this.nightNumber &&
           other.createdAt == this.createdAt &&
           other.resolvedAt == this.resolvedAt &&
-          other.summaryJson == this.summaryJson);
+          other.summaryJson == this.summaryJson &&
+          other.dayResolvedAt == this.dayResolvedAt &&
+          other.daySummaryJson == this.daySummaryJson);
 }
 
 class NightsCompanion extends UpdateCompanion<NightRow> {
@@ -1653,6 +1754,8 @@ class NightsCompanion extends UpdateCompanion<NightRow> {
   final Value<DateTime> createdAt;
   final Value<DateTime?> resolvedAt;
   final Value<String?> summaryJson;
+  final Value<DateTime?> dayResolvedAt;
+  final Value<String?> daySummaryJson;
   final Value<int> rowid;
   const NightsCompanion({
     this.id = const Value.absent(),
@@ -1661,6 +1764,8 @@ class NightsCompanion extends UpdateCompanion<NightRow> {
     this.createdAt = const Value.absent(),
     this.resolvedAt = const Value.absent(),
     this.summaryJson = const Value.absent(),
+    this.dayResolvedAt = const Value.absent(),
+    this.daySummaryJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   NightsCompanion.insert({
@@ -1670,6 +1775,8 @@ class NightsCompanion extends UpdateCompanion<NightRow> {
     required DateTime createdAt,
     this.resolvedAt = const Value.absent(),
     this.summaryJson = const Value.absent(),
+    this.dayResolvedAt = const Value.absent(),
+    this.daySummaryJson = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        gameId = Value(gameId),
@@ -1682,6 +1789,8 @@ class NightsCompanion extends UpdateCompanion<NightRow> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? resolvedAt,
     Expression<String>? summaryJson,
+    Expression<DateTime>? dayResolvedAt,
+    Expression<String>? daySummaryJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1691,6 +1800,8 @@ class NightsCompanion extends UpdateCompanion<NightRow> {
       if (createdAt != null) 'created_at': createdAt,
       if (resolvedAt != null) 'resolved_at': resolvedAt,
       if (summaryJson != null) 'summary_json': summaryJson,
+      if (dayResolvedAt != null) 'day_resolved_at': dayResolvedAt,
+      if (daySummaryJson != null) 'day_summary_json': daySummaryJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1702,6 +1813,8 @@ class NightsCompanion extends UpdateCompanion<NightRow> {
     Value<DateTime>? createdAt,
     Value<DateTime?>? resolvedAt,
     Value<String?>? summaryJson,
+    Value<DateTime?>? dayResolvedAt,
+    Value<String?>? daySummaryJson,
     Value<int>? rowid,
   }) {
     return NightsCompanion(
@@ -1711,6 +1824,8 @@ class NightsCompanion extends UpdateCompanion<NightRow> {
       createdAt: createdAt ?? this.createdAt,
       resolvedAt: resolvedAt ?? this.resolvedAt,
       summaryJson: summaryJson ?? this.summaryJson,
+      dayResolvedAt: dayResolvedAt ?? this.dayResolvedAt,
+      daySummaryJson: daySummaryJson ?? this.daySummaryJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1736,6 +1851,12 @@ class NightsCompanion extends UpdateCompanion<NightRow> {
     if (summaryJson.present) {
       map['summary_json'] = Variable<String>(summaryJson.value);
     }
+    if (dayResolvedAt.present) {
+      map['day_resolved_at'] = Variable<DateTime>(dayResolvedAt.value);
+    }
+    if (daySummaryJson.present) {
+      map['day_summary_json'] = Variable<String>(daySummaryJson.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1751,6 +1872,8 @@ class NightsCompanion extends UpdateCompanion<NightRow> {
           ..write('createdAt: $createdAt, ')
           ..write('resolvedAt: $resolvedAt, ')
           ..write('summaryJson: $summaryJson, ')
+          ..write('dayResolvedAt: $dayResolvedAt, ')
+          ..write('daySummaryJson: $daySummaryJson, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1804,6 +1927,17 @@ class $NightActionsTable extends NightActions
     additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 40),
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _phaseMeta = const VerificationMeta('phase');
+  @override
+  late final GeneratedColumn<String> phase = GeneratedColumn<String>(
+    'phase',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 8),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('night'),
   );
   static const VerificationMeta _actorPlayerIdMeta = const VerificationMeta(
     'actorPlayerId',
@@ -1877,6 +2011,7 @@ class $NightActionsTable extends NightActions
     nightId,
     gameId,
     type,
+    phase,
     actorPlayerId,
     targetPlayerId,
     secondaryTargetPlayerId,
@@ -1924,6 +2059,12 @@ class $NightActionsTable extends NightActions
       );
     } else if (isInserting) {
       context.missing(_typeMeta);
+    }
+    if (data.containsKey('phase')) {
+      context.handle(
+        _phaseMeta,
+        phase.isAcceptableOrUnknown(data['phase']!, _phaseMeta),
+      );
     }
     if (data.containsKey('actor_player_id')) {
       context.handle(
@@ -2002,6 +2143,10 @@ class $NightActionsTable extends NightActions
         DriftSqlType.string,
         data['${effectivePrefix}type'],
       )!,
+      phase: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}phase'],
+      )!,
       actorPlayerId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}actor_player_id'],
@@ -2044,6 +2189,11 @@ class NightActionRow extends DataClass implements Insertable<NightActionRow> {
 
   /// Key into the action catalogue — see `NightActionType`.
   final String type;
+
+  /// `night` or `day` — which half of the round recorded this action, so both
+  /// halves can be resolved separately. Some actions (the hunter's shot) can
+  /// happen in either, hence a column rather than a lookup in the catalogue.
+  final String phase;
   final String? actorPlayerId;
   final String? targetPlayerId;
   final String? secondaryTargetPlayerId;
@@ -2057,6 +2207,7 @@ class NightActionRow extends DataClass implements Insertable<NightActionRow> {
     required this.nightId,
     required this.gameId,
     required this.type,
+    required this.phase,
     this.actorPlayerId,
     this.targetPlayerId,
     this.secondaryTargetPlayerId,
@@ -2071,6 +2222,7 @@ class NightActionRow extends DataClass implements Insertable<NightActionRow> {
     map['night_id'] = Variable<String>(nightId);
     map['game_id'] = Variable<String>(gameId);
     map['type'] = Variable<String>(type);
+    map['phase'] = Variable<String>(phase);
     if (!nullToAbsent || actorPlayerId != null) {
       map['actor_player_id'] = Variable<String>(actorPlayerId);
     }
@@ -2096,6 +2248,7 @@ class NightActionRow extends DataClass implements Insertable<NightActionRow> {
       nightId: Value(nightId),
       gameId: Value(gameId),
       type: Value(type),
+      phase: Value(phase),
       actorPlayerId: actorPlayerId == null && nullToAbsent
           ? const Value.absent()
           : Value(actorPlayerId),
@@ -2123,6 +2276,7 @@ class NightActionRow extends DataClass implements Insertable<NightActionRow> {
       nightId: serializer.fromJson<String>(json['nightId']),
       gameId: serializer.fromJson<String>(json['gameId']),
       type: serializer.fromJson<String>(json['type']),
+      phase: serializer.fromJson<String>(json['phase']),
       actorPlayerId: serializer.fromJson<String?>(json['actorPlayerId']),
       targetPlayerId: serializer.fromJson<String?>(json['targetPlayerId']),
       secondaryTargetPlayerId: serializer.fromJson<String?>(
@@ -2141,6 +2295,7 @@ class NightActionRow extends DataClass implements Insertable<NightActionRow> {
       'nightId': serializer.toJson<String>(nightId),
       'gameId': serializer.toJson<String>(gameId),
       'type': serializer.toJson<String>(type),
+      'phase': serializer.toJson<String>(phase),
       'actorPlayerId': serializer.toJson<String?>(actorPlayerId),
       'targetPlayerId': serializer.toJson<String?>(targetPlayerId),
       'secondaryTargetPlayerId': serializer.toJson<String?>(
@@ -2157,6 +2312,7 @@ class NightActionRow extends DataClass implements Insertable<NightActionRow> {
     String? nightId,
     String? gameId,
     String? type,
+    String? phase,
     Value<String?> actorPlayerId = const Value.absent(),
     Value<String?> targetPlayerId = const Value.absent(),
     Value<String?> secondaryTargetPlayerId = const Value.absent(),
@@ -2168,6 +2324,7 @@ class NightActionRow extends DataClass implements Insertable<NightActionRow> {
     nightId: nightId ?? this.nightId,
     gameId: gameId ?? this.gameId,
     type: type ?? this.type,
+    phase: phase ?? this.phase,
     actorPlayerId: actorPlayerId.present
         ? actorPlayerId.value
         : this.actorPlayerId,
@@ -2187,6 +2344,7 @@ class NightActionRow extends DataClass implements Insertable<NightActionRow> {
       nightId: data.nightId.present ? data.nightId.value : this.nightId,
       gameId: data.gameId.present ? data.gameId.value : this.gameId,
       type: data.type.present ? data.type.value : this.type,
+      phase: data.phase.present ? data.phase.value : this.phase,
       actorPlayerId: data.actorPlayerId.present
           ? data.actorPlayerId.value
           : this.actorPlayerId,
@@ -2213,6 +2371,7 @@ class NightActionRow extends DataClass implements Insertable<NightActionRow> {
           ..write('nightId: $nightId, ')
           ..write('gameId: $gameId, ')
           ..write('type: $type, ')
+          ..write('phase: $phase, ')
           ..write('actorPlayerId: $actorPlayerId, ')
           ..write('targetPlayerId: $targetPlayerId, ')
           ..write('secondaryTargetPlayerId: $secondaryTargetPlayerId, ')
@@ -2229,6 +2388,7 @@ class NightActionRow extends DataClass implements Insertable<NightActionRow> {
     nightId,
     gameId,
     type,
+    phase,
     actorPlayerId,
     targetPlayerId,
     secondaryTargetPlayerId,
@@ -2244,6 +2404,7 @@ class NightActionRow extends DataClass implements Insertable<NightActionRow> {
           other.nightId == this.nightId &&
           other.gameId == this.gameId &&
           other.type == this.type &&
+          other.phase == this.phase &&
           other.actorPlayerId == this.actorPlayerId &&
           other.targetPlayerId == this.targetPlayerId &&
           other.secondaryTargetPlayerId == this.secondaryTargetPlayerId &&
@@ -2257,6 +2418,7 @@ class NightActionsCompanion extends UpdateCompanion<NightActionRow> {
   final Value<String> nightId;
   final Value<String> gameId;
   final Value<String> type;
+  final Value<String> phase;
   final Value<String?> actorPlayerId;
   final Value<String?> targetPlayerId;
   final Value<String?> secondaryTargetPlayerId;
@@ -2269,6 +2431,7 @@ class NightActionsCompanion extends UpdateCompanion<NightActionRow> {
     this.nightId = const Value.absent(),
     this.gameId = const Value.absent(),
     this.type = const Value.absent(),
+    this.phase = const Value.absent(),
     this.actorPlayerId = const Value.absent(),
     this.targetPlayerId = const Value.absent(),
     this.secondaryTargetPlayerId = const Value.absent(),
@@ -2282,6 +2445,7 @@ class NightActionsCompanion extends UpdateCompanion<NightActionRow> {
     required String nightId,
     required String gameId,
     required String type,
+    this.phase = const Value.absent(),
     this.actorPlayerId = const Value.absent(),
     this.targetPlayerId = const Value.absent(),
     this.secondaryTargetPlayerId = const Value.absent(),
@@ -2300,6 +2464,7 @@ class NightActionsCompanion extends UpdateCompanion<NightActionRow> {
     Expression<String>? nightId,
     Expression<String>? gameId,
     Expression<String>? type,
+    Expression<String>? phase,
     Expression<String>? actorPlayerId,
     Expression<String>? targetPlayerId,
     Expression<String>? secondaryTargetPlayerId,
@@ -2313,6 +2478,7 @@ class NightActionsCompanion extends UpdateCompanion<NightActionRow> {
       if (nightId != null) 'night_id': nightId,
       if (gameId != null) 'game_id': gameId,
       if (type != null) 'type': type,
+      if (phase != null) 'phase': phase,
       if (actorPlayerId != null) 'actor_player_id': actorPlayerId,
       if (targetPlayerId != null) 'target_player_id': targetPlayerId,
       if (secondaryTargetPlayerId != null)
@@ -2329,6 +2495,7 @@ class NightActionsCompanion extends UpdateCompanion<NightActionRow> {
     Value<String>? nightId,
     Value<String>? gameId,
     Value<String>? type,
+    Value<String>? phase,
     Value<String?>? actorPlayerId,
     Value<String?>? targetPlayerId,
     Value<String?>? secondaryTargetPlayerId,
@@ -2342,6 +2509,7 @@ class NightActionsCompanion extends UpdateCompanion<NightActionRow> {
       nightId: nightId ?? this.nightId,
       gameId: gameId ?? this.gameId,
       type: type ?? this.type,
+      phase: phase ?? this.phase,
       actorPlayerId: actorPlayerId ?? this.actorPlayerId,
       targetPlayerId: targetPlayerId ?? this.targetPlayerId,
       secondaryTargetPlayerId:
@@ -2367,6 +2535,9 @@ class NightActionsCompanion extends UpdateCompanion<NightActionRow> {
     }
     if (type.present) {
       map['type'] = Variable<String>(type.value);
+    }
+    if (phase.present) {
+      map['phase'] = Variable<String>(phase.value);
     }
     if (actorPlayerId.present) {
       map['actor_player_id'] = Variable<String>(actorPlayerId.value);
@@ -2401,6 +2572,7 @@ class NightActionsCompanion extends UpdateCompanion<NightActionRow> {
           ..write('nightId: $nightId, ')
           ..write('gameId: $gameId, ')
           ..write('type: $type, ')
+          ..write('phase: $phase, ')
           ..write('actorPlayerId: $actorPlayerId, ')
           ..write('targetPlayerId: $targetPlayerId, ')
           ..write('secondaryTargetPlayerId: $secondaryTargetPlayerId, ')
@@ -3726,6 +3898,8 @@ typedef $$NightsTableCreateCompanionBuilder = NightsCompanion Function({
   required DateTime createdAt,
   Value<DateTime?> resolvedAt,
   Value<String?> summaryJson,
+  Value<DateTime?> dayResolvedAt,
+  Value<String?> daySummaryJson,
   Value<int> rowid,
 });
 typedef $$NightsTableUpdateCompanionBuilder = NightsCompanion Function({
@@ -3735,6 +3909,8 @@ typedef $$NightsTableUpdateCompanionBuilder = NightsCompanion Function({
   Value<DateTime> createdAt,
   Value<DateTime?> resolvedAt,
   Value<String?> summaryJson,
+  Value<DateTime?> dayResolvedAt,
+  Value<String?> daySummaryJson,
   Value<int> rowid,
 });
 
@@ -3809,6 +3985,16 @@ class $$NightsTableFilterComposer
 
   ColumnFilters<String> get summaryJson => $composableBuilder(
     column: $table.summaryJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get dayResolvedAt => $composableBuilder(
+    column: $table.dayResolvedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get daySummaryJson => $composableBuilder(
+    column: $table.daySummaryJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3895,6 +4081,16 @@ class $$NightsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get dayResolvedAt => $composableBuilder(
+    column: $table.dayResolvedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get daySummaryJson => $composableBuilder(
+    column: $table.daySummaryJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$GamesTableOrderingComposer get gameId {
     final $$GamesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -3946,6 +4142,16 @@ class $$NightsTableAnnotationComposer
 
   GeneratedColumn<String> get summaryJson => $composableBuilder(
     column: $table.summaryJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get dayResolvedAt => $composableBuilder(
+    column: $table.dayResolvedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get daySummaryJson => $composableBuilder(
+    column: $table.daySummaryJson,
     builder: (column) => column,
   );
 
@@ -4032,6 +4238,8 @@ class $$NightsTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime?> resolvedAt = const Value.absent(),
                 Value<String?> summaryJson = const Value.absent(),
+                Value<DateTime?> dayResolvedAt = const Value.absent(),
+                Value<String?> daySummaryJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NightsCompanion(
                 id: id,
@@ -4040,6 +4248,8 @@ class $$NightsTableTableManager
                 createdAt: createdAt,
                 resolvedAt: resolvedAt,
                 summaryJson: summaryJson,
+                dayResolvedAt: dayResolvedAt,
+                daySummaryJson: daySummaryJson,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4050,6 +4260,8 @@ class $$NightsTableTableManager
                 required DateTime createdAt,
                 Value<DateTime?> resolvedAt = const Value.absent(),
                 Value<String?> summaryJson = const Value.absent(),
+                Value<DateTime?> dayResolvedAt = const Value.absent(),
+                Value<String?> daySummaryJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NightsCompanion.insert(
                 id: id,
@@ -4058,6 +4270,8 @@ class $$NightsTableTableManager
                 createdAt: createdAt,
                 resolvedAt: resolvedAt,
                 summaryJson: summaryJson,
+                dayResolvedAt: dayResolvedAt,
+                daySummaryJson: daySummaryJson,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -4151,6 +4365,7 @@ typedef $$NightActionsTableCreateCompanionBuilder =
       required String nightId,
       required String gameId,
       required String type,
+      Value<String> phase,
       Value<String?> actorPlayerId,
       Value<String?> targetPlayerId,
       Value<String?> secondaryTargetPlayerId,
@@ -4165,6 +4380,7 @@ typedef $$NightActionsTableUpdateCompanionBuilder =
       Value<String> nightId,
       Value<String> gameId,
       Value<String> type,
+      Value<String> phase,
       Value<String?> actorPlayerId,
       Value<String?> targetPlayerId,
       Value<String?> secondaryTargetPlayerId,
@@ -4217,6 +4433,11 @@ class $$NightActionsTableFilterComposer
 
   ColumnFilters<String> get type => $composableBuilder(
     column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get phase => $composableBuilder(
+    column: $table.phase,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4298,6 +4519,11 @@ class $$NightActionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get phase => $composableBuilder(
+    column: $table.phase,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get actorPlayerId => $composableBuilder(
     column: $table.actorPlayerId,
     builder: (column) => ColumnOrderings(column),
@@ -4369,6 +4595,9 @@ class $$NightActionsTableAnnotationComposer
 
   GeneratedColumn<String> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get phase =>
+      $composableBuilder(column: $table.phase, builder: (column) => column);
 
   GeneratedColumn<String> get actorPlayerId => $composableBuilder(
     column: $table.actorPlayerId,
@@ -4454,6 +4683,7 @@ class $$NightActionsTableTableManager
                 Value<String> nightId = const Value.absent(),
                 Value<String> gameId = const Value.absent(),
                 Value<String> type = const Value.absent(),
+                Value<String> phase = const Value.absent(),
                 Value<String?> actorPlayerId = const Value.absent(),
                 Value<String?> targetPlayerId = const Value.absent(),
                 Value<String?> secondaryTargetPlayerId = const Value.absent(),
@@ -4466,6 +4696,7 @@ class $$NightActionsTableTableManager
                 nightId: nightId,
                 gameId: gameId,
                 type: type,
+                phase: phase,
                 actorPlayerId: actorPlayerId,
                 targetPlayerId: targetPlayerId,
                 secondaryTargetPlayerId: secondaryTargetPlayerId,
@@ -4480,6 +4711,7 @@ class $$NightActionsTableTableManager
                 required String nightId,
                 required String gameId,
                 required String type,
+                Value<String> phase = const Value.absent(),
                 Value<String?> actorPlayerId = const Value.absent(),
                 Value<String?> targetPlayerId = const Value.absent(),
                 Value<String?> secondaryTargetPlayerId = const Value.absent(),
@@ -4492,6 +4724,7 @@ class $$NightActionsTableTableManager
                 nightId: nightId,
                 gameId: gameId,
                 type: type,
+                phase: phase,
                 actorPlayerId: actorPlayerId,
                 targetPlayerId: targetPlayerId,
                 secondaryTargetPlayerId: secondaryTargetPlayerId,

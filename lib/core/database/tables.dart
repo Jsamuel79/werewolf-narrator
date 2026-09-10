@@ -70,6 +70,12 @@ class Nights extends Table {
   /// the resolver against a player state that has since moved on.
   TextColumn get summaryJson => text().nullable()();
 
+  /// Non-null once the day phase (debate, election, vote) is over too.
+  DateTimeColumn get dayResolvedAt => dateTime().nullable()();
+
+  /// Serialised `NightOutcome` of the day phase.
+  TextColumn get daySummaryJson => text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 
@@ -91,6 +97,12 @@ class NightActions extends Table {
 
   /// Key into the action catalogue — see `NightActionType`.
   TextColumn get type => text().withLength(max: 40)();
+
+  /// `night` or `day` — which half of the round recorded this action, so both
+  /// halves can be resolved separately. Some actions (the hunter's shot) can
+  /// happen in either, hence a column rather than a lookup in the catalogue.
+  TextColumn get phase =>
+      text().withLength(max: 8).withDefault(const Constant('night'))();
   TextColumn get actorPlayerId => text().nullable()();
   TextColumn get targetPlayerId => text().nullable()();
   TextColumn get secondaryTargetPlayerId => text().nullable()();

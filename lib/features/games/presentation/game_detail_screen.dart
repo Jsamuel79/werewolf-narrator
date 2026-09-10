@@ -8,7 +8,7 @@ import '../../export/presentation/export_actions.dart';
 import '../../history/presentation/history_screen.dart';
 import '../../nights/domain/night_entities.dart';
 import '../../nights/presentation/controllers/nights_providers.dart';
-import '../../nights/presentation/night_screen.dart';
+import '../../nights/presentation/night_cards_screen.dart';
 import '../../victory/domain/victory_entities.dart';
 import '../../victory/presentation/victory_screen.dart';
 import '../domain/game_entities.dart';
@@ -185,7 +185,7 @@ class _GameDetailView extends ConsumerWidget {
     if (!ok || night == null) return;
     await navigator.push(
       MaterialPageRoute<void>(
-        builder: (_) => NightScreen(
+        builder: (_) => NightCardsScreen(
           gameId: snapshot.game.id,
           nightId: night!.id,
         ),
@@ -587,7 +587,7 @@ class _NightsSection extends ConsumerWidget {
                       ),
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => NightScreen(
+                          builder: (_) => NightCardsScreen(
                             gameId: snapshot.game.id,
                             nightId: night.id,
                           ),

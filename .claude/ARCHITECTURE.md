@@ -147,7 +147,7 @@ garde les promesses de sécurité (pas de permission réseau, pas de socket).
 
 ---
 
-## 3. Schéma de base de données (Drift, `schemaVersion = 3`)
+## 3. Schéma de base de données (Drift, `schemaVersion = 4`)
 
 ### `games`
 | Colonne | Type | Notes |
@@ -188,8 +188,10 @@ vote du village qui la suit. Choix documenté en §7 (décision D2).
 | `gameId` | TEXT FK → `games.id` | `ON DELETE CASCADE` |
 | `nightNumber` | INT | 1, 2, 3… |
 | `createdAt` | DATETIME | |
-| `resolvedAt` | DATETIME? | non nul = nuit close, actions figées |
-| `summaryJson` | TEXT? | `NightOutcome` sérialisé au moment de la résolution |
+| `resolvedAt` | DATETIME? | non nul = **phase de nuit** close, actions de nuit figées |
+| `summaryJson` | TEXT? | `NightOutcome` de la nuit, sérialisé à la résolution |
+| `dayResolvedAt` | DATETIME? | *(v4)* non nul = **phase de jour** close ; le tour est terminé |
+| `daySummaryJson` | TEXT? | *(v4)* `NightOutcome` de la phase de jour |
 
 ### `night_actions`
 | Colonne | Type | Notes |
@@ -198,6 +200,7 @@ vote du village qui la suit. Choix documenté en §7 (décision D2).
 | `nightId` | TEXT FK → `nights.id` | `ON DELETE CASCADE` |
 | `gameId` | TEXT | dénormalisé (requêtes d'historique) |
 | `type` | TEXT | clé du catalogue d'actions |
+| `phase` | TEXT | *(v4)* `night` \| `day` — quelle moitié du tour a enregistré l'action (défaut `night`) |
 | `actorPlayerId` | TEXT? | qui agit |
 | `targetPlayerId` | TEXT? | cible principale |
 | `secondaryTargetPlayerId` | TEXT? | 2ᵉ cible (couple Cupidon, …) |
@@ -229,6 +232,7 @@ donc une partie enregistrée par une version antérieure survit à la mise à jo
 | 1 | schéma initial du MVP (4 tables) |
 | 2 | `games.winnerCampId`, `games.winnerReason` — mémorisation du camp vainqueur |
 | 3 | table `game_role_selections` — rôles autorisés par partie |
+| 4 | `nights.dayResolvedAt`, `nights.daySummaryJson`, `night_actions.phase` — les deux moitiés d'un tour se résolvent séparément. Les tours clos par la 1.0.0 sont marqués « jour résolu » : ils couvraient déjà la nuit **et** le vote du lendemain. |
 
 ---
 
@@ -430,6 +434,65 @@ vainqueur mémorisé : il sera recalculé au prochain mouvement du plateau.
 
 ---
 
+## 5 quater. La nuit en cartes *(v2)*
+
+L'ancien formulaire (choisir une action dans une liste, remplir une boîte de dialogue) a
+disparu. La nuit est désormais une **pile de cartes plein écran** : l'application décide
+de la carte suivante, le narrateur ne fait que répondre.
+
+### Séquence
+
+`NightSequenceBuilder.build(snapshot, nightNumber, usedOncePerGameActionIds,
+lastGuardedPlayerId)` — pur — renvoie la liste ordonnée des cartes. L'ordre suit le
+réveil canonique du jeu de société :
+
+```
+Voleur → Cupidon → Deux Sœurs → Trois Frères → Enfant sauvage
+      → Voyante → Renard → Salvateur
+      → Loups-Garous → Petite Fille → Grand Méchant Loup
+      → Infect Père des Loups → Loup-Garou Blanc
+      → Sorcière → Joueur de Flûte → Corbeau
+      → 🌅 Bilan de la nuit
+```
+
+Sont filtrés automatiquement : les rôles morts, les pouvoirs de première nuit passé la
+nuit 1, les pouvoirs à usage unique déjà consommés, et le Loup-Garou Blanc les nuits
+impaires (il ne dévore qu'une nuit sur deux).
+
+### Types de cartes
+
+| `NightCardKind` | Interface | Rôles |
+|-----------------|-----------|-------|
+| `singleTarget` | une liste de joueurs, un seul choix | Loups, Grand Méchant Loup, Loup Blanc, Infect Père, Salvateur, Enfant sauvage |
+| `dualTarget` | deux joueurs distincts | Cupidon, Joueur de Flûte |
+| `reveal` | un joueur, puis le rôle est révélé **au narrateur** dans une boîte de dialogue, et enregistré dans l'historique | Voyante |
+| `targetWithNote` | un joueur + une note libre | Renard, Corbeau |
+| `confirm` | question fermée (« c'est fait » / « rien cette nuit ») | Deux Sœurs, Trois Frères, Petite Fille, Voleur (+ choix de la carte volée) |
+| `witch` | trois boutons : Sauver / Empoisonner / Ne rien faire | Sorcière |
+| `summary` | le bilan calculé par `NightResolver`, puis « Valider et passer au jour » | — |
+
+Les cibles proposées dépendent du `NightTargetScope` de la carte : la meute ne peut pas
+se dévorer elle-même, la Voyante ne se regarde pas, le Loup Blanc ne mange que des loups,
+et le Salvateur ne peut pas reprotéger le joueur de la nuit précédente.
+
+**Sorcière** : la potion de vie ne peut ressusciter que la victime désignée par les loups
+**cette nuit** (bouton grisé tant que la meute n'a pas choisi) ; la potion de mort ouvre
+la liste des vivants. Chaque potion disparaît une fois bue.
+
+### Navigation
+
+`SwipeCardStack` (dans `core/widgets/`) est écrit à la main : `GestureDetector` +
+`Transform` + un `AnimationController`, avec la carte suivante qui dépasse derrière la
+carte courante. Balayer vers la gauche passe à la suite **sans rien enregistrer** (« ce
+rôle ne fait rien cette nuit »), vers la droite revient corriger une réponse. Les boutons
+« Précédent » / « Passer » font exactement la même chose : le geste tactile n'est jamais
+le seul chemin.
+
+Revenir sur une carte déjà validée et répondre à nouveau **remplace** l'action au lieu
+d'en empiler une seconde.
+
+---
+
 ## 6. Flux de données
 
 ```
@@ -472,6 +535,10 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D9** | L'en-tête de l'export est passé en **AAD** au chiffrement GCM | Sans cela, un attaquant pourrait réécrire `iterations` ou `version` sans invalider le tag. L'AAD est reconstruit champ par champ, pas depuis le texte JSON, pour qu'un reformatage du fichier ne casse pas un import légitime. |
 | **D10** | L'import **régénère tous les identifiants** | Permet d'importer deux fois le même fichier, et garantit qu'un import n'écrase jamais une partie déjà présente. Les couples, les actions et les bilans stockés sont remappés en conséquence. |
 | **D11** | Le Capitaine, les charmes et les rôles modifiés sont appliqués par `NightResolver.apply` | Une seule fonction décrit l'effet d'un tour sur le plateau ; le repository n'est plus qu'une traduction en SQL. |
+| **D23** | La pile de cartes est **maison** (`SwipeCardStack`), sans package de swipe | Un `PageView` ne sait pas faire dépasser la carte suivante derrière la carte courante, et l'app garantit qu'aucune dépendance ne touche au réseau : moins de dépendances, moins de surface à auditer. ~150 lignes de `Transform` et un `AnimationController`. |
+| **D24** | L'ordre de réveil place la **Voyante avant les Loups** | C'est l'ordre du livret officiel (Voleur, Cupidon, Amoureux, Voyante, Loups, Sorcière) : la Voyante ne doit pas savoir qui a été dévoré. Le brief de la V2 citait l'ordre inverse en exemple, mais l'instruction principale était de reprendre l'ordre canonique du jeu de société, et l'ordre n'a aucun effet sur la résolution — seule la Sorcière **doit** passer après les loups, ce qui est respecté. |
+| **D25** | Un tour est désormais **deux moitiés résolues séparément** (`resolvedAt` / `dayResolvedAt`), et chaque action porte sa `phase` | La nuit doit être appliquée au plateau avant que le jour commence (le réveil annonce les morts). Rejouer les actions de nuit au moment du vote fausserait le bilan du jour ; la colonne `phase` rend la séparation explicite, y compris pour le tir du Chasseur qui peut arriver dans les deux. |
+| **D26** | Le Salvateur ne peut pas protéger le même joueur deux nuits de suite | La règle officielle existe, le catalogue la décrit déjà, et l'information nécessaire (la protection de la nuit précédente) est une requête d'une ligne. La contrainte est appliquée par filtrage des cibles, avec la raison affichée sur la carte. |
 | **D20** | Le total saisi par le narrateur **contient déjà** la main du Capitaine ; désigner sa cible ajoute une seule voix | Le narrateur compte les mains levées : la sienne comprise. Ajouter 2 compterait le Capitaine trois fois. L'écran l'annonce explicitement (« son vote compte double : +1 voix »). |
 | **D21** | L'égalité est tranchée par le **Bouc émissaire avant** le Capitaine | Règle officielle : le Bouc émissaire existe précisément pour ça ; la voix prépondérante du Capitaine ne sert que lorsqu'il n'est pas en jeu. |
 | **D22** | L'immunité de l'Idiot du Village est **une fois par partie**, calculée depuis l'historique (`villageIdiotSpared`) | Le catalogue décrit déjà la règle ; la modéliser sans état supplémentaire sur `players` évite une migration, et l'historique garde la trace du moment où il a été démasqué. |
