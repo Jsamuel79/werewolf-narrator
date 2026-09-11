@@ -349,3 +349,76 @@ qu'un `find.widgetWithText(...)` peut trouver deux occurrences. Les tests visent
 | Migrations | ✅ 1 → 2 → 3 → 4, par ajout uniquement, testées sur une base 1.0.0 |
 
 Aucun blocage technique n'a nécessité de contournement pendant cette session.
+
+---
+
+## 2026-09-11 — Session V2.1
+
+### ⚠️ Problème n°6 — un flux Drift ne surveille que les tables de sa requête
+
+Les deux bugs remontés du terrain (potion de vie grisée, bilan du jour vide) avaient une
+seule cause. `watchNight` était écrit ainsi :
+
+```dart
+_db.select(_db.nights).watchSingleOrNull().asyncMap((row) async => NightDetail(
+      night: row.toEntity(),
+      actions: await _actionsOf(nightId),   // ← requête séparée
+    ));
+```
+
+Drift construit le flux à partir des tables que **la requête** lit — ici `nights` seule.
+Les actions chargées dans l'`asyncMap` n'y participent pas : insérer dans `night_actions`
+ne réveillait donc jamais le flux. L'écran gardait la liste d'actions telle qu'elle était
+à son ouverture.
+
+**Résolution** — une requête jointe, qui fait dépendre le flux des deux tables :
+
+```dart
+_db.select(_db.nights).join([
+  leftOuterJoin(_db.nightActions,
+      _db.nightActions.nightId.equalsExp(_db.nights.id)),
+])
+```
+
+**Leçon retenue** : dans Drift, tout ce qui doit rafraîchir un écran doit être **dans** la
+requête. Un `asyncMap`, un `Future` annexe ou un `await` dans un provider ne créent aucune
+dépendance.
+
+### ⚠️ Problème n°7 — `.future` d'un provider rend l'état déjà chargé
+
+Après `resolveDay`, l'écran demandait `ref.read(gameSnapshotProvider(id).future)` pour
+savoir si la partie était finie. Quand le provider détient déjà une valeur, ce futur se
+complète **immédiatement avec cette valeur** — celle d'avant la transaction. Le vote qui
+lynchait le dernier loup revenait donc à l'écran de partie au lieu d'ouvrir l'écran de
+victoire.
+
+**Résolution** — relire le plateau depuis le repository après l'écriture attendue.
+Un provider observé sert à *afficher*, pas à *décider* juste après avoir écrit.
+
+### ⚠️ Problème n°8 — les entrées/sorties réelles ne s'exécutent pas dans un test de widget
+
+L'écran des instantanés lit de vrais fichiers via un `FutureProvider`. Testé avec
+`testWidgets` + `pumpAndSettle`, le test **ne se terminait jamais** : le corps d'un test de
+widget tourne dans une zone où les futurs de `dart:io` ne sont pas pompés, et le
+`CircularProgressIndicator` de l'état « chargement » est une animation infinie que
+`pumpAndSettle` attend indéfiniment.
+
+**Résolution** — deux niveaux de test, chacun à sa place :
+
+- `auto_backup_service_test.dart` (test unitaire classique) exerce les vrais fichiers :
+  écriture, relecture, rotation, restauration, clé étrangère, fichier altéré ;
+- `backups_screen_test.dart` injecte la liste via un override de `gameBackupsProvider` et
+  ne touche jamais au disque.
+
+Même piège pour `pumpAndSettle` après une navigation vers un écran qui affiche un
+indicateur de progression : pomper à la main (`pump(Duration)`) ou ne pas naviguer.
+
+### État de fin de session V2.1
+
+| Vérification | Résultat |
+|--------------|----------|
+| `flutter analyze` | ✅ aucun problème |
+| `flutter test` | ✅ 307 tests verts |
+| `flutter build apk --release` | ✅ `app-release.apk` |
+| Dépendances ajoutées | ✅ **aucune** (toujours 16 paquets, liste épinglée par le test hors-ligne) |
+| Migrations | ✅ aucune nouvelle : la V2.1 ne touche pas au schéma |

@@ -25,6 +25,8 @@ AES-256 (SQLCipher)**.
 | 🌙 **Nuit en cartes** | Une carte plein écran par rôle vivant, dans l'ordre de réveil officiel. Balayez pour passer, revenez en arrière pour corriger |
 | ☀️ **Phase de jour** | Réveil, élection du Capitaine, chronomètre de débat, vote du village, tir du Chasseur |
 | ⭐ **Capitaine** | Élu une seule fois, sa voix compte double et tranche les égalités ; à sa mort, successeur désigné ou nouvelle élection |
+| 💡 **Rappels** | Les pouvoirs passifs (Ancien, Chevalier, Idiot du Village, Bouc émissaire…) s'affichent sur la carte qui les pose |
+| 💾 **Instantanés** | Sauvegarde chiffrée automatique après chaque tour, restaurable en un geste, sans mot de passe ni réseau |
 | ⚖️ **Résolution automatique** | Protections, potions, cumul d'attaques, **cascade de chagrin** entre amoureux, infections |
 | 🏆 **Fin de partie** | Détection automatique du vainqueur (Village, Loups, Amoureux mixtes, rôles solitaires) et écran de victoire, puis « rejouer avec les mêmes joueurs » |
 | 📜 **Historique** | Chronologie complète : chaque tour, chaque action horodatée, chaque bilan |
@@ -67,7 +69,7 @@ flutter run
 
 ```bash
 flutter analyze   # doit être vide
-flutter test      # 245 tests
+flutter test      # 307 tests
 ```
 
 ### Build APK
@@ -117,7 +119,7 @@ lib/
 └── features/
     ├── games/             # parties, joueurs, rôles, composition, distribution
     ├── nights/            # nuit en cartes, actions, moteur de résolution
-    ├── day/               # réveil, capitaine, débat, vote du village
+    ├── day/               # réveil, capitaine, débat, vote, juge bègue, servante
     ├── victory/           # règles de fin de partie et écran de victoire
     ├── history/           # chronologie d'une partie
     └── export/            # export / import chiffré

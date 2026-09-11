@@ -3,6 +3,88 @@
 Toutes les évolutions notables du projet, de la plus récente à la plus ancienne.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.1.0] — 2026-09-11
+
+Deux bugs de synchronisation remontés du terrain, et la fin de la roadmap : les
+deux derniers rôles sans interface, les rappels de pouvoirs passifs, et une
+sauvegarde chiffrée qui se fait toute seule.
+
+### Corrigé
+
+- 🐞 **La potion de vie de la Sorcière paraissait inutilisable.** Après que la
+  meute avait désigné sa victime, la carte suivante affichait « Personne à
+  sauver » — alors que le bilan de fin de nuit, lui, annonçait bien la mort.
+- 🐞 **Le bilan du jour s'ouvrait vide.** Juste après la validation d'un vote
+  qui éliminait un joueur, la carte suivante annonçait « personne n'est mort »,
+  et ne se corrigeait qu'au rechargement suivant.
+
+  Même cause pour les deux : `watchNight` interrogeait la table `nights` et
+  chargeait les actions à côté. Un flux Drift ne se réveille que pour les tables
+  que sa requête lit — celui-ci n'entendait donc jamais parler d'une action
+  ajoutée, et **toutes les cartes après la première lisaient une liste
+  périmée**. La donnée n'était jamais perdue, ce qui explique que le bilan final,
+  rendu après la mise à jour de la ligne `nights`, ait toujours été juste. La
+  requête joint désormais les deux tables : enregistrer, modifier ou retirer une
+  action rafraîchit l'écran immédiatement.
+- 🐞 **Un vote qui terminait la partie ne montrait pas l'écran de victoire.**
+  Même famille : l'écran demandait au provider qui l'observait si la partie était
+  finie, et recevait l'état d'avant la transaction. Le plateau est maintenant
+  relu en base après l'écriture.
+- 🐞 **Les cartes de jour se partageaient leur état** faute de clé : le joueur
+  choisi pour l'élection du Capitaine se retrouvait présélectionné sur la carte
+  du Chasseur.
+
+### Ajouté
+
+#### Les deux derniers rôles du catalogue
+- **Juge bègue** : une fois dans la partie, il peut réclamer un **second vote**
+  immédiatement après le premier, dans la même journée. Les deux éliminations
+  comptent, et c'est le second vote qui a le dernier mot sur le Chasseur et sur
+  la Servante.
+- **Servante dévouée** : juste avant que la carte de l'éliminé ne soit
+  retournée, elle peut se dévoiler et la reprendre. Elle perd alors tous ses
+  statuts — amoureux, écharpe de Capitaine, charme — et son partenaire est
+  libéré du couple.
+
+#### Rappels des pouvoirs passifs
+- Les règles que l'application ne peut pas appliquer seule s'affichent sur la
+  carte qui les pose : l'**Ancien** et le **Chevalier** sur la carte des loups,
+  l'**ours** et la **Servante** au réveil, l'**Idiot du Village**, le **Bouc
+  émissaire** et la malédiction de l'**Ancien** sur la carte de vote.
+- Les règles que le moteur applique vraiment le disent (« l'application s'en
+  charge »), pour qu'elles ne soient pas appliquées deux fois.
+
+#### Sauvegarde automatique chiffrée
+- Après **chaque moitié de tour**, l'application écrit un instantané chiffré de
+  la partie dans son répertoire privé, scellé avec la **clé de la base** : aucun
+  mot de passe à saisir, aucun réseau, rien de lisible hors de l'appareil.
+- Un fichier par partie, réécrit à chaque tour, via un fichier temporaire
+  renommé pour qu'un crash en cours d'écriture ne détruise pas le précédent.
+- Écran **« Instantanés de secours »** depuis l'accueil : liste, restauration
+  (qui crée une **copie** — la partie en cours n'est jamais écrasée) et
+  suppression.
+- Une sauvegarde qui échoue n'annule jamais le tour joué.
+
+#### Chronomètre
+- Nouveau mode **« Tour de parole »** : chaque joueur dispose du même temps
+  (20/30/45/60 s), le nom du joueur courant est affiché, et un bouton passe au
+  suivant en faisant le tour de la table. Le mode « Débat libre » reste
+  inchangé.
+
+### Sécurité
+- Toujours **aucune dépendance ajoutée** : l'instantané réutilise l'AES-256-GCM
+  déjà embarqué, avec la clé du Keystore au lieu d'un mot de passe. Les deux
+  types d'enveloppe se refusent mutuellement, avec un message qui indique la
+  bonne porte.
+- Le tag GCM couvre l'en-tête : un instantané modifié est rejeté, un instantané
+  venu d'une autre installation est ignoré sans casser la liste.
+
+### Tests
+- 307 tests verts. Les deux bugs ont d'abord été reproduits par des tests qui
+  échouaient sur le code livré — flux Drift, carte de la Sorcière, aller-retour
+  dans la pile de cartes, bilan du jour, cascade des amoureux, Chasseur
+  lynché — avant d'être corrigés.
+
 ## [2.0.0] — 2026-09-10
 
 La partie se termine enfin toute seule, et le tour de jeu est refondu : la nuit
