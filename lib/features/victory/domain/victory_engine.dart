@@ -51,12 +51,17 @@ abstract interface class VictoryRule {
 /// Pure: it takes the board and returns a verdict. The order of [rules] *is*
 /// the rule of precedence — the mixed lovers beat both the village and the
 /// wolves, which is why they are evaluated before them.
+///
+/// The Piper comes first of all. His tune is a win condition of its own, owed
+/// to nobody: it can close the game on a board where the village has already
+/// killed the last wolf, or where the pack has reached parity, and it holds
+/// even when he is one half of a mixed couple.
 abstract final class VictoryEngine {
   static const List<VictoryRule> rules = [
+    _PiperRule(),
     _NobodyLeftRule(),
     _MixedLoversRule(),
     _AngelRule(),
-    _PiperRule(),
     _SoloSurvivorRule(),
     _VillageRule(),
     _WerewolvesRule(),
@@ -151,6 +156,15 @@ class _AngelRule implements VictoryRule {
 }
 
 /// The Piper wins once every other survivor is under their spell.
+///
+/// Three things this rule deliberately does *not* do:
+///
+/// * it never asks the Piper to be charmed himself — he is the one playing the
+///   tune, and the card excludes him from his own targets;
+/// * it never counts the dead: a charmed player who has been eaten takes his
+///   charm to the grave, and the survivors alone decide;
+/// * it never makes the Piper's death a condition for anybody else. He simply
+///   stops being able to win, and the board goes back to Village against pack.
 class _PiperRule implements VictoryRule {
   const _PiperRule();
 
@@ -164,15 +178,26 @@ class _PiperRule implements VictoryRule {
       if (player.roleId == Roles.piper.id) piper = player;
     }
     if (piper == null) return null;
-    final others = context.survivors.where((p) => p.id != piper!.id);
+    final others = context.survivors
+        .where((p) => p.id != piper!.id)
+        .toList(growable: false);
     if (others.isEmpty || others.any((p) => !p.isCharmed)) return null;
+
+    // Cupid's thread survives even a solo win: a Piper who is in love wins
+    // *with* his lover rather than against them, which is the only reading
+    // that does not make the two rules contradict each other.
+    final lover = context.playerById(piper.coupledWithPlayerId);
+    final sharesWithLover = lover != null && lover.isAlive;
 
     return VictoryResult(
       camp: VictoryCamp.forSoloRole(Roles.piper),
-      reason:
-          'Tous les survivants sont charmés : ${piper.name}, Joueur de Flûte, '
-          'gagne seul.',
-      winnerPlayerIds: [piper.id],
+      reason: sharesWithLover
+          ? 'Tous les survivants sont charmés : ${piper.name}, Joueur de '
+                'Flûte, gagne — et emmène ${lover.name}, son amoureux, avec '
+                'lui.'
+          : 'Tous les survivants sont charmés : ${piper.name}, Joueur de '
+                'Flûte, gagne seul.',
+      winnerPlayerIds: [piper.id, if (sharesWithLover) lover.id],
       ruleId: 'piper',
     );
   }

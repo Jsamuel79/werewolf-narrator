@@ -196,6 +196,136 @@ void main() {
     });
   });
 
+  /// The Piper plays for nobody but himself. His win is checked *before* every
+  /// other rule, and his death is not something the village has to achieve.
+  group('the Piper wins on his own terms', () {
+    test('takes the win over a mixed couple he is part of', () {
+      // Last two alive: the Piper and his charmed lover. Both the lovers' rule
+      // and his own would fire — his comes first.
+      final result = VictoryEngine.evaluate([
+        player('piper', roleId: Roles.piper.id, lover: 'alice'),
+        player(
+          'alice',
+          roleId: Roles.villager.id,
+          lover: 'piper',
+          charmed: true,
+        ),
+        player('wolf', roleId: Roles.werewolf.id, alive: false),
+      ]);
+
+      expect(result!.camp.id, Roles.piper.id);
+      expect(result.ruleId, 'piper');
+      // Cupid's thread holds even here: the lover shares the win.
+      expect(result.winnerPlayerIds, containsAll(['piper', 'alice']));
+      expect(result.reason, contains('alice'));
+    });
+
+    test('wins even though every werewolf is already dead', () {
+      final result = VictoryEngine.evaluate([
+        player('piper', roleId: Roles.piper.id),
+        player('alice', roleId: Roles.villager.id, charmed: true),
+        player('bob', roleId: Roles.seer.id, charmed: true),
+        player('wolf', roleId: Roles.werewolf.id, alive: false),
+      ]);
+
+      expect(result!.camp.id, Roles.piper.id);
+      expect(result.ruleId, 'piper');
+    });
+
+    test('takes the win over the pack that has caught up', () {
+      final result = VictoryEngine.evaluate([
+        player('piper', roleId: Roles.piper.id, charmed: false),
+        player('wolf', roleId: Roles.werewolf.id, charmed: true),
+      ]);
+
+      expect(result!.camp.id, Roles.piper.id);
+    });
+
+    test('never has to charm himself to win', () {
+      final players = [
+        player('piper', roleId: Roles.piper.id),
+        player('alice', roleId: Roles.villager.id, charmed: true),
+      ];
+      expect(players.first.isCharmed, isFalse);
+
+      expect(VictoryEngine.evaluate(players)!.camp.id, Roles.piper.id);
+    });
+
+    test('waits while a single survivor still resists the tune', () {
+      final result = VictoryEngine.evaluate([
+        player('piper', roleId: Roles.piper.id),
+        player('alice', roleId: Roles.villager.id, charmed: true),
+        player('bob', roleId: Roles.villager.id),
+        player('carl', roleId: Roles.villager.id, charmed: true),
+        player('wolf', roleId: Roles.werewolf.id),
+      ]);
+
+      expect(result, isNull);
+    });
+
+    test('counts only the living: a charmed corpse decides nothing', () {
+      final result = VictoryEngine.evaluate([
+        player('piper', roleId: Roles.piper.id),
+        player('alice', roleId: Roles.villager.id, charmed: true, alive: false),
+        player('bob', roleId: Roles.villager.id),
+        player('carl', roleId: Roles.villager.id),
+        player('wolf', roleId: Roles.werewolf.id),
+      ]);
+
+      expect(result, isNull);
+    });
+  });
+
+  /// Rule 5 of the rulebook, the one the narrator had backwards: killing the
+  /// Piper has never been part of the village's win condition.
+  group('the Piper never blocks the other camps', () {
+    test('the village wins on the last wolf, Piper alive and charming', () {
+      final result = VictoryEngine.evaluate([
+        player('alice', roleId: Roles.villager.id, charmed: true),
+        player('bob', roleId: Roles.seer.id),
+        player('piper', roleId: Roles.piper.id),
+        player('wolf', roleId: Roles.werewolf.id, alive: false),
+      ]);
+
+      expect(result!.camp, VictoryCamp.village);
+      expect(result.ruleId, 'village');
+      // The Piper is not a villager: he loses with nothing.
+      expect(result.winnerPlayerIds, isNot(contains('piper')));
+    });
+
+    test('a dead Piper leaves the village and the pack to settle it', () {
+      final stillRunning = VictoryEngine.evaluate([
+        player('piper', roleId: Roles.piper.id, alive: false),
+        player('alice', roleId: Roles.villager.id, charmed: true),
+        player('bob', roleId: Roles.villager.id),
+        player('wolf', roleId: Roles.werewolf.id),
+      ]);
+      expect(
+        stillRunning,
+        isNull,
+        reason: 'his death is not a victory condition for anybody',
+      );
+
+      final afterTheWolfDies = VictoryEngine.evaluate([
+        player('piper', roleId: Roles.piper.id, alive: false),
+        player('alice', roleId: Roles.villager.id, charmed: true),
+        player('bob', roleId: Roles.villager.id),
+        player('wolf', roleId: Roles.werewolf.id, alive: false),
+      ]);
+      expect(afterTheWolfDies!.camp, VictoryCamp.village);
+    });
+
+    test('a dead Piper cannot win on a table full of charmed survivors', () {
+      final result = VictoryEngine.evaluate([
+        player('piper', roleId: Roles.piper.id, alive: false),
+        player('alice', roleId: Roles.villager.id, charmed: true),
+        player('wolf', roleId: Roles.werewolf.id, charmed: true),
+      ]);
+
+      expect(result!.camp, VictoryCamp.werewolves);
+    });
+  });
+
   group('degenerate boards', () {
     test('a table without a single wolf ends at the first check', () {
       final result = VictoryEngine.evaluate([

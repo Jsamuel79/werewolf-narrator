@@ -526,10 +526,10 @@ liste. La position dans la liste *est* la priorité.
 
 | Ordre | Règle | Condition | Vainqueur |
 |-------|-------|-----------|-----------|
-| 1 | `nobodyLeft` | plus aucun survivant | Personne (la partie s'arrête quand même) |
-| 2 | `mixedLovers` | les 2 derniers survivants sont un couple de camps différents | Les Amoureux |
-| 3 | `angel` | l'Ange a été éliminé au **tour 1** | L'Ange, seul |
-| 4 | `piper` | le Joueur de Flûte est vivant et tous les autres survivants sont charmés | Le Joueur de Flûte |
+| 1 | `piper` | le Joueur de Flûte est vivant et **tous les autres survivants** sont charmés | Le Joueur de Flûte *(+ son amoureux vivant)* |
+| 2 | `nobodyLeft` | plus aucun survivant | Personne (la partie s'arrête quand même) |
+| 3 | `mixedLovers` | les 2 derniers survivants sont un couple de camps différents | Les Amoureux |
+| 4 | `angel` | l'Ange a été éliminé au **tour 1** | L'Ange, seul |
 | 5 | `soloSurvivor` | un unique survivant, de camp `solo` | Ce rôle (Loup-Garou Blanc…) |
 | 6 | `village` | plus aucun joueur « côté loup » vivant | Le Village |
 | 7 | `werewolves` | `survivants non-loups <= loups vivants` et au moins un loup vivant | Les Loups-Garous |
@@ -539,6 +539,23 @@ liste. La position dans la liste *est* la priorité.
 pour le Loup-Garou, le Grand Méchant Loup, l'Infect Père des Loups **et** le Loup-Garou
 Blanc, qui joue seul mais chasse avec la meute — le Village ne gagne qu'une fois qu'il est
 mort lui aussi.
+
+### Le Joueur de Flûte, cas particulier de première ligne *(v2.2)*
+
+Sa victoire est **indépendante** des deux camps et **prioritaire sur tout le reste** :
+elle peut tomber sur un plateau où le dernier loup est déjà mort, ou où la meute a déjà
+atteint la parité. C'est pour cela que `piper` est la **première** règle évaluée.
+
+Ce que la règle vérifie, et ce qu'elle ne vérifie pas :
+
+| Point | Comportement |
+|-------|--------------|
+| Qui doit être charmé | **tous les survivants sauf lui** ; il ne se charme jamais lui-même et n'a pas à l'être |
+| Les morts charmés | ne comptent pas : le charme part avec eux, seuls les vivants décident |
+| Sa mort | **n'est la condition de victoire de personne**. Il perd simplement sa façon de gagner, et la partie se règle ensuite entre Village et Loups |
+| Le Village | gagne dès le dernier « côté loup » éliminé, Joueur de Flûte vivant ou non — aucune règle ne le retient (cf. D40) |
+| S'il est amoureux | il gagne **avec** son amoureux vivant, qui est crédité de la victoire à ses côtés (cf. D41) |
+| S'il est infecté | l'Infect Père des Loups écrit `roleId = werewolf` sur sa ligne : il n'est plus Joueur de Flûte, la règle `piper` ne le voit plus et il gagne désormais avec la meute. Les charmes déjà posés restent sur les autres joueurs mais ne servent plus à rien (cf. D42) |
 
 ### Quand la vérification se déclenche
 
@@ -707,6 +724,9 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D34** | Chaque carte de jour porte une **clé** dérivée de son identifiant | Sans clé, Flutter réutilise l'état d'une carte pour la suivante : la cible choisie pour le Capitaine se retrouvait présélectionnée sur la carte du Chasseur, et le second vote du Juge se serait ouvert sur le décompte du premier. |
 | **D30** | `watchNight` lit le tour **et** ses actions dans **une seule requête jointe** | Un stream Drift ne se réveille que pour les tables que sa requête lit. Charger les actions dans un `asyncMap` au-dessus d'un stream sur `nights` seul rendait le flux aveugle à `night_actions` : toutes les cartes après la première lisaient une liste périmée (bugs de la 2.0.0 : potion de vie grisée, bilan du jour vide). La jointure fait dépendre le stream des deux tables. |
 | **D29** | « Rejouer » **crée une nouvelle partie** au lieu de réinitialiser l'ancienne | Une partie terminée est une archive : l'historique, les bilans et les rôles révélés doivent rester consultables. Réinitialiser les lignes existantes les détruirait. |
+| **D40** | La mort du Joueur de Flûte **n'est pas** une condition de victoire du Village | Règle officielle : le Village gagne par élimination de tous les Loups-Garous, point. Le moteur ne contenait aucune logique en ce sens, mais rien ne le disait non plus : un test de non-régression et cette ligne verrouillent le comportement, parce que l'intuition de table est exactement l'inverse. Le Joueur de Flûte n'est pas non plus crédité d'une victoire du Village : il joue seul et perd seul. |
+| **D41** | Un Joueur de Flûte amoureux gagne **avec** son amoureux vivant | Deux règles officielles se rencontrent : « les Amoureux gagnent ensemble » et « le Joueur de Flûte gagne seul ». Les faire s'exclure obligerait à trancher au détriment de Cupidon ; les faire cohabiter ne coûte qu'un identifiant de plus dans `winnerPlayerIds`, et c'est la lecture que retiennent les tables. Le camp affiché reste celui du Joueur de Flûte — c'est sa condition qui a clos la partie. |
+| **D42** | Un Joueur de Flûte **infecté** perd sa condition de victoire et gagne avec la meute | L'infection réécrit `roleId` (règle déjà en place depuis la v1) : la règle `piper` cherche un survivant dont le rôle est `piper` et ne le trouve plus. C'est cohérent avec l'Infect Père des Loups, dont le pouvoir est précisément de faire changer de camp, et cela évite un statut « ancien rôle » que rien d'autre n'utiliserait. |
 
 ---
 
