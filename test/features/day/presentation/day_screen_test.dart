@@ -372,4 +372,50 @@ void main() {
       await disposeTree(tester);
     });
   });
+
+  testWidgets('a vote that ends the game opens the victory screen at once', (
+    tester,
+  ) async {
+    // Three players left is enough: lynching the last wolf wins it for the
+    // village, and the screen must show that without a reload.
+    final board = await games.loadGame(snapshot.game.id);
+    await games.savePlayers([
+      for (final player in board!.players)
+        if (player.name == 'Chloé' || player.name == 'Louve')
+          player.copyWith(isAlive: false, deathCause: 'Retiré du plateau'),
+    ]);
+    await nights.resolveNight(night.id);
+
+    // No onDayResolved override: the real navigation runs.
+    await tester.pumpWidget(
+      wrap(DayScreen(gameId: snapshot.game.id, nightId: night.id)),
+    );
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.text('Passer'));
+      await tester.pumpAndSettle();
+    }
+
+    final row = find
+        .ancestor(of: find.text('Loup'), matching: find.byType(Row))
+        .last;
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(
+        find.descendant(
+          of: row,
+          matching: find.byIcon(Icons.add_circle_outline),
+        ),
+      );
+      await tester.pump();
+    }
+    await tapVisible(tester, find.text('Valider le vote'));
+    await tester.pumpAndSettle();
+    await tapVisible(tester, find.text('Valider la journée'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Le Village l\'emporte'), findsOneWidget);
+    expect(find.text('Fin de partie'), findsOneWidget);
+
+    await disposeTree(tester);
+  });
 }

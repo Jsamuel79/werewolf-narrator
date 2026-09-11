@@ -330,10 +330,13 @@ class _DayScreenState extends ConsumerState<DayScreen> {
       return;
     }
 
-    // The vote may have ended the game; the recorder has already closed it.
-    final snapshot = await ref.read(
-      gameSnapshotProvider(widget.gameId).future,
-    );
+    // The vote may have ended the game. Read the board back from the database
+    // rather than from the watching provider: the provider still holds the
+    // state it had before the transaction, and `.future` would hand that stale
+    // value straight back.
+    final snapshot = await ref
+        .read(gamesRepositoryProvider)
+        .loadGame(widget.gameId);
     if (!mounted) return;
     if (snapshot != null && snapshot.game.isFinished) {
       await navigator.pushReplacement(
