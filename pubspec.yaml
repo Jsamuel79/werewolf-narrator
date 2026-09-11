@@ -1,7 +1,7 @@
 name: werewolf_narrator
 description: "Assistant de narration hors-ligne pour le jeu Loup-Garou"
 publish_to: 'none'
-version: 2.1.0+3
+version: 2.2.0+4
 
 environment:
   sdk: ^3.13.3

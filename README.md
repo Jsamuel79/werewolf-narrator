@@ -26,9 +26,11 @@ AES-256 (SQLCipher)**.
 | ☀️ **Phase de jour** | Réveil, élection du Capitaine, chronomètre de débat, vote du village, tir du Chasseur |
 | ⭐ **Capitaine** | Élu une seule fois, sa voix compte double et tranche les égalités ; à sa mort, successeur désigné ou nouvelle élection |
 | 💡 **Rappels** | Les pouvoirs passifs (Ancien, Chevalier, Idiot du Village, Bouc émissaire…) s'affichent sur la carte qui les pose |
+| 🕵️ **Info narrateur** | Ce que la table ne doit pas savoir mais que vous, si : la victime des loups était-elle déjà protégée par le Salvateur ? |
+| 🎶 **Joueur de Flûte** | Sa victoire lui appartient et passe avant toutes les autres ; ses cibles déjà charmées disparaissent de la liste, et l'appel des charmés vous est rappelé chaque nuit |
 | 💾 **Instantanés** | Sauvegarde chiffrée automatique après chaque tour, restaurable en un geste, sans mot de passe ni réseau |
 | ⚖️ **Résolution automatique** | Protections, potions, cumul d'attaques, **cascade de chagrin** entre amoureux, infections |
-| 🏆 **Fin de partie** | Détection automatique du vainqueur (Village, Loups, Amoureux mixtes, rôles solitaires) et écran de victoire, puis « rejouer avec les mêmes joueurs » |
+| 🏆 **Fin de partie** | Détection automatique du vainqueur (Joueur de Flûte, Village, Loups, Amoureux mixtes, rôles solitaires) et écran de victoire, puis « rejouer avec les mêmes joueurs » |
 | 📜 **Historique** | Chronologie complète : chaque tour, chaque action horodatée, chaque bilan |
 | 🔐 **Export chiffré** | JSON protégé par mot de passe (AES-256-GCM), partageable |
 | 📥 **Import** | Rechargez un export sur n'importe quel appareil |
@@ -69,7 +71,7 @@ flutter run
 
 ```bash
 flutter analyze   # doit être vide
-flutter test      # 307 tests
+flutter test      # 351 tests
 ```
 
 ### Build APK

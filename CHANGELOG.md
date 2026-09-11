@@ -3,6 +3,80 @@
 Toutes les évolutions notables du projet, de la plus récente à la plus ancienne.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.2.0] — 2026-09-11
+
+Une vraie partie avec un Joueur de Flûte, et cinq remontées du terrain : sa
+condition de victoire n'était pas prioritaire, ses cibles se répétaient, son
+rituel de reconnaissance n'était rappelé nulle part, la Sorcière ne disait rien
+au narrateur de ce qu'il voulait savoir, et compter quarante voix demandait
+quarante appuis.
+
+### Corrigé
+
+- 🐞 **Le Joueur de Flûte pouvait perdre une partie qu'il venait de gagner.**
+  Sa règle existait, mais elle était évaluée en quatrième : un Flûtiste ayant
+  charmé sa propre amoureuse se faisait souffler la victoire par la règle des
+  Amoureux, qui se déclenchait avant lui sur le même plateau. Sa condition est
+  désormais la **première** testée — avant les Amoureux, avant le Village, avant
+  les Loups — parce qu'elle ne doit rien à personne.
+- 🎭 **Un Flûtiste amoureux gagne avec son amoureux vivant.** Deux règles
+  officielles se croisaient ; les faire cohabiter coûte un nom de plus au
+  palmarès et évite d'en sacrifier une (cf. D41).
+- 📖 **Règle remise à l'endroit, et verrouillée par des tests : tuer le Joueur
+  de Flûte n'a jamais fait partie des conditions de victoire du Village.** Le
+  Village gagne en éliminant les Loups-Garous, Flûtiste vivant ou non. Un
+  Flûtiste mort perd simplement sa façon de gagner (cf. D40).
+- 🐞 **Les joueurs déjà charmés étaient reproposés nuit après nuit.** Le charme
+  ne se retire jamais : les revoir dans la liste laissait croire que le sort
+  s'était dissipé, et recharmer quelqu'un coûtait une nuit entière. Sa carte ne
+  propose plus que les vivants non charmés, et dit pourquoi un nom manque.
+- 🐞 **Le charme ne pouvait plus être validé quand il ne restait qu'un nom.**
+  Conséquence du filtrage : la carte exigeait deux cibles, donc la dernière
+  nuit utile était impossible à valider — et la victoire du Flûtiste,
+  inatteignable. La règle dit « un ou deux joueurs » : la seconde cible est
+  maintenant facultative (cf. D43).
+- 🐞 **Compter plus d'une poignée de voix demandait autant d'appuis que de
+  voix.** Le compteur de votes se saisit désormais au clavier autant qu'au
+  `+`/`-`, sans aucun plafond : l'application compte ce que le narrateur lui
+  dit, elle ne le contredit pas (cf. D45).
+
+### Ajouté
+
+- 🕵️ **Bandeau « Info narrateur »** sur les cartes de nuit. Le jeu cache des
+  choses aux *joueurs*, jamais au narrateur : la carte de la Sorcière indique
+  désormais si la victime des loups est **déjà protégée par le Salvateur**, donc
+  si la potion de vie ferait double emploi. La Sorcière, elle, n'est toujours
+  pas censée le savoir — le bandeau est visuellement à l'opposé du reste de la
+  carte et porte la mention « à ne pas lire à voix haute ». Même mécanisme sur
+  le **Grand Méchant Loup** (la meute a déjà désigné X) et sur l'**Infect Père
+  des Loups** (quel repas l'infection remplace, et quand elle serait dépensée
+  pour rien). **Aucun bouton n'est jamais grisé** à cause d'une de ces
+  informations (cf. D44).
+- 🎶 **Appel des charmés**, une carte par nuit, juste après celle du Flûtiste :
+  la liste **cumulée** de tous les joueurs charmés — les anciens et ceux de la
+  nuit — à réveiller ensemble pour qu'ils se reconnaissent, comme le prévoit la
+  règle. Elle n'enregistre rien, exclut les morts, et n'existe pas s'il n'y a
+  personne à réveiller (cf. D46).
+- ⭐ La voix double du Capitaine s'affiche **à côté** du compteur (`+1⭐`) au
+  lieu d'être fondue dedans : le champ contient les mains levées, et rien
+  d'autre.
+
+### Documenté
+
+- Le cas du Flûtiste **infecté** par l'Infect Père des Loups : il change de
+  `roleId`, donc de camp, et perd sa condition solo (cf. D42).
+- Décisions **D40 à D46** dans `.claude/ARCHITECTURE.md`, avec le nouvel ordre
+  des règles de victoire et les deux nouveaux mécanismes de carte.
+
+### Inchangé
+
+- **Aucune migration** : le schéma ne bouge pas (la colonne `isCharmed` existait
+  depuis la v1, et elle n'a jamais été remise à zéro entre deux nuits).
+- **Aucune dépendance ajoutée** — toujours 16 paquets, liste épinglée par le
+  test hors-ligne. Le format d'export est inchangé et reste lisible par les
+  versions précédentes.
+- 351 tests verts, `flutter analyze` sans reproche.
+
 ## [2.1.0] — 2026-09-11
 
 Deux bugs de synchronisation remontés du terrain, et la fin de la roadmap : les

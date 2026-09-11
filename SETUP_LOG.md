@@ -422,3 +422,64 @@ indicateur de progression : pomper à la main (`pump(Duration)`) ou ne pas navig
 | `flutter build apk --release` | ✅ `app-release.apk` |
 | Dépendances ajoutées | ✅ **aucune** (toujours 16 paquets, liste épinglée par le test hors-ligne) |
 | Migrations | ✅ aucune nouvelle : la V2.1 ne touche pas au schéma |
+
+---
+
+## Session V2.2 — cinq remontées du terrain
+
+### ⚠️ Problème n°9 — un bug de règle peut être un bug d'**ordre**, pas de code manquant
+
+Le moteur de victoire connaissait déjà la condition du Joueur de Flûte, et cinq des six
+tests écrits pour la reproduire passaient **du premier coup**. Un seul échouait : celui où
+le Flûtiste avait charmé sa propre amoureuse, parce que la règle des Amoureux était
+évaluée avant la sienne et rendait son verdict en premier.
+
+**Leçon retenue** : dans un moteur à liste de règles ordonnée, écrire la règle ne suffit
+pas — sa **place** est la moitié de la règle. Et écrire les tests avant de lire le code a
+payé : ils ont montré du même coup ce qui manquait vraiment (la priorité, le partage de
+la victoire avec l'amoureux) et ce qui était déjà juste, ce qu'une lecture du code aurait
+confirmé trop vite.
+
+### ⚠️ Problème n°10 — un filtre d'affichage peut rendre une action impossible à valider
+
+Retirer les joueurs déjà charmés de la carte du Flûtiste a immédiatement cassé un test de
+bout en bout : l'action exige deux cibles, et la dernière nuit utile n'en propose souvent
+plus qu'une. La correction d'un bug d'ergonomie avait créé une impasse de règle.
+
+**Leçon retenue** : quand on réduit l'ensemble des choix possibles, vérifier ce que
+deviennent les contraintes de **validité** qui portaient sur cet ensemble. Ici, le drapeau
+`secondaryTargetOptional` est porté par l'action du catalogue, pas par un `if` sur son
+identifiant : Cupidon continue d'exiger ses deux amoureux sans le savoir.
+
+### ⚠️ Problème n°11 — deux listes de choix identiques dans la même carte
+
+Sur une carte à deux cibles, `find.widgetWithText(ChoiceChip, 'Chloé').last` visait la
+**seconde** liste, jamais la première : les deux affichent les mêmes noms, et la pile
+dessine en plus la carte suivante derrière la carte courante. Le test tapait donc deux
+fois dans la même liste et le bouton « Valider » restait grisé, sans que rien ne le dise.
+
+**Résolution** — une `ValueKey` sur chacune des deux listes (`primary-targets`,
+`secondary-targets`), et un `find.descendant` dans le test. Un `.last` reste nécessaire
+par-dessus, pour la carte du dessus de la pile.
+
+### ⚠️ Problème n°12 — le plafond que le narrateur décrivait n'existait pas dans le code
+
+L'utilisateur décrivait une « limite maximale » sur la saisie des voix. Recherche faite,
+aucune constante, aucun `clamp`, aucune borne : la seule limite était le compteur `+`/`-`
+lui-même, qui demandait quarante appuis pour quarante voix. Le symptôme était réel, la
+cause supposée ne l'était pas.
+
+**Leçon retenue** : vérifier la cause avant de « retirer » quelque chose qui n'existe pas.
+Le correctif utile n'était pas de relever une borne mais de changer le mode de saisie —
+et de documenter (D45) qu'il n'y a **volontairement** aucune borne haute.
+
+### État de fin de session V2.2
+
+| Vérification | Résultat |
+|--------------|----------|
+| `flutter analyze` | ✅ aucun problème |
+| `flutter test` | ✅ 351 tests verts |
+| `flutter build apk --release` | ✅ `app-release.apk` |
+| Dépendances ajoutées | ✅ **aucune** (toujours 16 paquets) |
+| Migrations | ✅ aucune : `isCharmed` existait depuis la v1 |
+| Format d'export | ✅ inchangé, compatible avec les exports 2.0 et 2.1 |
