@@ -6,9 +6,11 @@ import '../../../games/domain/passive_reminders.dart';
 import '../../../games/domain/role.dart';
 import '../../../games/presentation/widgets/passive_reminder_band.dart';
 import '../../../games/presentation/widgets/role_picker_sheet.dart';
+import '../../domain/narrator_hints.dart';
 import '../../domain/night_action_type.dart';
 import '../../domain/night_entities.dart';
 import '../../domain/night_sequence.dart';
+import 'narrator_hint_band.dart';
 import 'player_choice_list.dart';
 
 /// What a card hands back when the narrator validates it.
@@ -38,7 +40,7 @@ class NightCardView extends StatefulWidget {
     required this.spec,
     required this.snapshot,
     required this.recorded,
-    required this.werewolfVictimId,
+    required this.nightActions,
     required this.onSubmit,
     required this.onSkip,
     super.key,
@@ -50,8 +52,14 @@ class NightCardView extends StatefulWidget {
   /// The action already recorded for this card, when the narrator comes back.
   final NightAction? recorded;
 
-  /// Who the pack chose tonight — the only player the witch may save.
-  final String? werewolfVictimId;
+  /// Everything already recorded for this night. The card reads two things
+  /// from it: who the pack chose — the only player the witch may bring back —
+  /// and the narrator-only hints.
+  final List<NightAction> nightActions;
+
+  /// Who the pack chose tonight, if the card has already been answered.
+  String? get werewolfVictimId =>
+      NightSequenceBuilder.werewolfVictimOf(nightActions);
 
   final ValueChanged<NightActionDraft> onSubmit;
   final VoidCallback onSkip;
@@ -181,6 +189,13 @@ class _NightCardViewState extends State<NightCardView> {
             PassiveReminderBand(
               reminders: PassiveReminders.forNightCard(
                 cardId: spec.id,
+                snapshot: widget.snapshot,
+              ),
+            ),
+            NarratorHintBand(
+              hints: NarratorHints.forNightCard(
+                cardId: spec.id,
+                actions: widget.nightActions,
                 snapshot: widget.snapshot,
               ),
             ),

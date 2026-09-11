@@ -404,4 +404,106 @@ void main() {
 
     await disposeTree(tester);
   });
+
+  /// Bug 3: the narrator wants to know what the Witch must not be told.
+  ///
+  /// The player around the table must never learn that the Guard already
+  /// covered the victim — that is the rule, and it stays true. The narrator
+  /// holding the phone is the one who decides whether to let it slip, so the
+  /// information belongs on their screen, marked as theirs alone.
+  group('what the narrator knows and the Witch does not', () {
+    /// Swaps Alice's seer card for the Guard's, so the deck opens on him.
+    Future<void> seatTheGuard() async {
+      final alice = snapshot.players.firstWhere((p) => p.name == 'Alice');
+      await games.savePlayers([alice.copyWith(roleId: Roles.guard.id)]);
+      snapshot = (await games.loadGame(snapshot.game.id))!;
+    }
+
+    /// Answers the Guard's card, then the pack's.
+    Future<void> playTheNight(
+      WidgetTester tester, {
+      required String protect,
+      required String eat,
+    }) async {
+      await tester.tap(find.widgetWithText(ChoiceChip, protect).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Valider').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(ChoiceChip, eat).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Valider').last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('says the victim is already under the shield', (tester) async {
+      await seatTheGuard();
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+
+      await playTheNight(tester, protect: 'Chloé', eat: 'Chloé');
+
+      expect(find.textContaining('Info narrateur'), findsOneWidget);
+      expect(
+        find.textContaining('Salvateur protège déjà Chloé'),
+        findsOneWidget,
+      );
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('leaves every button free to be pressed anyway', (
+      tester,
+    ) async {
+      await seatTheGuard();
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+
+      await playTheNight(tester, protect: 'Chloé', eat: 'Chloé');
+
+      // An information, never a constraint: the narrator may still let the
+      // Witch spend her potion on a victim who was never in danger.
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Sauver Chloé').last,
+            )
+            .onPressed,
+        isNotNull,
+      );
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('stays quiet when the shield covers somebody else', (
+      tester,
+    ) async {
+      await seatTheGuard();
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+
+      await playTheNight(tester, protect: 'David', eat: 'Chloé');
+
+      expect(find.textContaining('Info narrateur'), findsNothing);
+      expect(find.text('Sauver Chloé'), findsOneWidget);
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('stays quiet when no Guard is at the table', (tester) async {
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Passer'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Chloé').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Valider').last);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Info narrateur'), findsNothing);
+
+      await disposeTree(tester);
+    });
+  });
 }

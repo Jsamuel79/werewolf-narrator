@@ -151,9 +151,7 @@ class _NightCardsScreenState extends ConsumerState<NightCardsScreen> {
               spec: spec,
               snapshot: nightContext.snapshot,
               recorded: nightContext.actionOf(spec.id),
-              werewolfVictimId: NightSequenceBuilder.werewolfVictimOf(
-                nightContext.nightActions,
-              ),
+              nightActions: nightContext.nightActions,
               onSubmit: (draft) => _record(nightContext, draft, cards.length),
               onSkip: () => _next(cards.length),
             );
