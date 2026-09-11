@@ -46,13 +46,32 @@ class DriftNightsRepository implements NightsRepository {
 
   @override
   Stream<NightDetail?> watchNight(String nightId) {
-    final nightQuery = _db.select(_db.nights)
-      ..where((n) => n.id.equals(nightId));
-    return nightQuery.watchSingleOrNull().asyncMap((row) async {
-      if (row == null) return null;
+    // The round **and** its actions come from a single joined query on
+    // purpose: a Drift stream only wakes up for the tables its query reads.
+    // Fetching the actions in an `asyncMap` over a `nights`-only stream made
+    // the stream blind to `night_actions`, so every card after the first one
+    // read a stale list — the witch could not see the victim the pack had just
+    // chosen, and the day recap opened on an empty day.
+    final query =
+        _db.select(_db.nights).join([
+            leftOuterJoin(
+              _db.nightActions,
+              _db.nightActions.nightId.equalsExp(_db.nights.id),
+            ),
+          ])
+          ..where(_db.nights.id.equals(nightId))
+          ..orderBy([OrderingTerm.asc(_db.nightActions.orderIndex)]);
+
+    return query.watch().map((rows) {
+      if (rows.isEmpty) return null;
+      final actions = <NightAction>[];
+      for (final row in rows) {
+        final action = row.readTableOrNull(_db.nightActions);
+        if (action != null) actions.add(action.toEntity());
+      }
       return NightDetail(
-        night: row.toEntity(),
-        actions: await _actionsOf(nightId),
+        night: rows.first.readTable(_db.nights).toEntity(),
+        actions: actions,
       );
     });
   }

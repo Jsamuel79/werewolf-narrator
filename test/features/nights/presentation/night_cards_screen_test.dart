@@ -243,4 +243,130 @@ void main() {
 
     await disposeTree(tester);
   });
+
+  group('the witch reads the victim designated moments earlier', () {
+    /// Designates [name] on the wolves' card, which is the second one.
+    Future<void> feedThePack(WidgetTester tester, String name) async {
+      await tester.tap(find.text('Passer'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, name).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Valider').last);
+      await tester.pumpAndSettle();
+    }
+
+    bool saveButtonIsEnabled(WidgetTester tester, String name) {
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Sauver $name').last,
+      );
+      return button.onPressed != null;
+    }
+
+    testWidgets('the life potion targets the victim of this very night', (
+      tester,
+    ) async {
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+
+      await feedThePack(tester, 'Chloé');
+
+      // We are now on the witch's card, in the same night, before any
+      // resolution: nobody is dead yet, but the pack has chosen.
+      expect(find.textContaining('La meute a désigné Chloé'), findsOneWidget);
+      expect(find.text('Sauver Chloé'), findsOneWidget);
+      expect(saveButtonIsEnabled(tester, 'Chloé'), isTrue);
+      expect(
+        (await games.loadGame(snapshot.game.id))!
+            .players
+            .firstWhere((p) => p.name == 'Chloé')
+            .isAlive,
+        isTrue,
+        reason: 'the victim only dies when the night is resolved',
+      );
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('the life potion survives a trip back and forth', (
+      tester,
+    ) async {
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+
+      await feedThePack(tester, 'David');
+      expect(find.text('Sauver David'), findsOneWidget);
+
+      // Back to the wolves' card to check the answer, then forward again.
+      await tester.tap(find.text('Précédent'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'David').last)
+            .selected,
+        isTrue,
+        reason: 'going back must show what was recorded',
+      );
+
+      await tester.tap(find.text('Passer'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sauver David'), findsOneWidget);
+      expect(saveButtonIsEnabled(tester, 'David'), isTrue);
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('changing the victim changes who the witch may save', (
+      tester,
+    ) async {
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+
+      await feedThePack(tester, 'Chloé');
+      expect(find.text('Sauver Chloé'), findsOneWidget);
+
+      await tester.tap(find.text('Précédent'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, 'David').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Valider').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sauver David'), findsOneWidget);
+      expect(find.text('Sauver Chloé'), findsNothing);
+      // And the pack still has exactly one victim, not two.
+      final stored = (await nights.loadNight(night.id))!.actions;
+      expect(
+        stored.where(
+          (a) => a.typeId == NightActionTypes.werewolfVictim.id,
+        ),
+        hasLength(1),
+      );
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('no victim means no life potion to offer', (tester) async {
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Passer'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Passer'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Personne à sauver'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Personne à sauver').last,
+            )
+            .onPressed,
+        isNull,
+        reason: 'there is nobody to bring back',
+      );
+
+      await disposeTree(tester);
+    });
+  });
 }

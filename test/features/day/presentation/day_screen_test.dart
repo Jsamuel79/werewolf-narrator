@@ -248,4 +248,128 @@ void main() {
 
     await disposeTree(tester);
   });
+
+  group('the consequences of the vote show up straight away', () {
+    /// Puts [count] hands up for [name] on the vote card.
+    Future<void> voteFor(
+      WidgetTester tester,
+      String name,
+      int count,
+    ) async {
+      final row = find
+          .ancestor(of: find.text(name), matching: find.byType(Row))
+          .last;
+      for (var i = 0; i < count; i++) {
+        await tester.tap(
+          find.descendant(
+            of: row,
+            matching: find.byIcon(Icons.add_circle_outline),
+          ),
+        );
+        await tester.pump();
+      }
+    }
+
+    Future<void> walkToTheVote(WidgetTester tester) async {
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.text('Passer'));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('Le vote du village'), findsOneWidget);
+    }
+
+    testWidgets('the recap names the eliminated player on its first frame', (
+      tester,
+    ) async {
+      await closeNightEating('Alice');
+      await walkToTheVote(tester);
+
+      await voteFor(tester, 'Loup', 3);
+      await tapVisible(tester, find.text('Valider le vote'));
+      await tester.pumpAndSettle();
+
+      // No reload, no navigation, no delay: the very next card must already
+      // know that the village just voted somebody out.
+      expect(find.text('Fin de la journée'), findsOneWidget);
+      expect(
+        find.textContaining('Loup — Éliminé par le vote du village'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('personne n\'est mort'),
+        findsNothing,
+        reason: 'the recap must never flash an empty day first',
+      );
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('the grief of a lover is part of that first frame', (
+      tester,
+    ) async {
+      final chloe = snapshot.players.firstWhere((p) => p.name == 'Chloé');
+      final wolf = snapshot.players.firstWhere((p) => p.name == 'Loup');
+      await games.savePlayers([
+        chloe.copyWith(coupledWithPlayerId: wolf.id),
+        wolf.copyWith(coupledWithPlayerId: chloe.id),
+      ]);
+      await closeNightEating('Alice');
+      await walkToTheVote(tester);
+
+      await voteFor(tester, 'Loup', 3);
+      await tapVisible(tester, find.text('Valider le vote'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Loup — Éliminé par le vote du village'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Chloé — Mort de chagrin'),
+        findsOneWidget,
+        reason: 'the lover dies with them, in the same recap',
+      );
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('a hunter voted out is asked for his shot right away', (
+      tester,
+    ) async {
+      // Bob is the hunter of this table.
+      final bob = snapshot.players.firstWhere((p) => p.name == 'Bob');
+      await games.savePlayers([bob.copyWith(roleId: 'hunter')]);
+      await closeNightEating('Alice');
+      await walkToTheVote(tester);
+
+      await voteFor(tester, 'Bob', 3);
+      await tapVisible(tester, find.text('Valider le vote'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Chasseur'),
+        findsOneWidget,
+        reason: 'the hunter card must appear as soon as he is voted out',
+      );
+      expect(find.textContaining('Étape 5 sur 6'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Loup').last);
+      await tester.pumpAndSettle();
+      await tapVisible(tester, find.text('Tirer'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Bob — Éliminé par le vote du village'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Loup — Abattu par le Chasseur'),
+        findsOneWidget,
+      );
+
+      await disposeTree(tester);
+    });
+  });
 }

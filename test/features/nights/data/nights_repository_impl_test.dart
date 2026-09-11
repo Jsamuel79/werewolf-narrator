@@ -290,4 +290,69 @@ void main() {
       expect(await db.select(db.nightActions).get(), isEmpty);
     });
   });
+
+  group('watchNight reactivity', () {
+    test('emits again as soon as an action is recorded', () async {
+      // The night screen reads the actions of the round in progress through
+      // this stream. If it only wakes up when the `nights` row changes, every
+      // card after the first one reads a stale list — which is exactly what
+      // made the witch's life potion look unusable.
+      final night = await nights.startNight(game.id);
+      final emissions = <int>[];
+      final subscription = nights.watchNight(night.id).listen((detail) {
+        if (detail != null) emissions.add(detail.actions.length);
+      });
+      addTearDown(subscription.cancel);
+      await pumpEventQueue();
+
+      await nights.addAction(
+        nightId: night.id,
+        typeId: NightActionTypes.werewolfVictim.id,
+        targetPlayerId: playerNamed('Alice').id,
+      );
+      await pumpEventQueue();
+
+      expect(
+        emissions,
+        [0, 1],
+        reason: 'recording an action must push a new state to the screen',
+      );
+    });
+
+    test('emits again when an action is removed', () async {
+      final night = await nights.startNight(game.id);
+      final action = await nights.addAction(
+        nightId: night.id,
+        typeId: NightActionTypes.werewolfVictim.id,
+        targetPlayerId: playerNamed('Alice').id,
+      );
+
+      final emissions = <int>[];
+      final subscription = nights.watchNight(night.id).listen((detail) {
+        if (detail != null) emissions.add(detail.actions.length);
+      });
+      addTearDown(subscription.cancel);
+      await pumpEventQueue();
+
+      await nights.removeAction(action.id);
+      await pumpEventQueue();
+
+      expect(emissions, [1, 0]);
+    });
+
+    test('still reports the round being closed', () async {
+      final night = await nights.startNight(game.id);
+      final resolved = <bool>[];
+      final subscription = nights.watchNight(night.id).listen((detail) {
+        if (detail != null) resolved.add(detail.night.isResolved);
+      });
+      addTearDown(subscription.cancel);
+      await pumpEventQueue();
+
+      await nights.resolveNight(night.id);
+      await pumpEventQueue();
+
+      expect(resolved, [false, true]);
+    });
+  });
 }
