@@ -441,7 +441,7 @@ enchaînée automatiquement après le bilan de la nuit.
 |-------|-------|---------|
 | 🌤️ **Réveil** | toujours | les morts de la nuit, **relus** depuis le `NightOutcome` déjà calculé — rien n'est recalculé |
 | ⭐ **Capitaine** | seulement si aucun Capitaine vivant | liste des vivants ; si le Capitaine vient de mourir, un sélecteur « Nouvelle élection / Désigné par lui » choisit le type d'action enregistrée |
-| ⏱️ **Débat** | toujours | chronomètre configurable (2/3/5/10 min, ±30 s), démarrer / pause / remise à zéro, vibration + son système à la fin |
+| ⏱️ **Débat** | toujours | chronomètre configurable, en deux modes : **débat libre** (2/3/5/10 min) ou **tour de parole** (20/30/45/60 s par joueur, passage au suivant, boucle sur la table). Démarrer / pause / remise à zéro, vibration + son système à la fin |
 | 🗳️ **Vote** | toujours | un compteur +/- par joueur vivant, la cible du Capitaine (+1 voix), et le résultat calculé **en direct** par `VoteResolver` |
 | ⚖️ **Juge bègue** | tant qu'il est vivant et n'a pas usé de son pouvoir | « Oui, second vote » / « Non » — une seule fois dans la partie |
 | 🗳️ **Second vote** | seulement s'il l'a réclamé | même carte de vote, enregistrée sous `villageSecondVote` |
@@ -696,6 +696,7 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D26** | Le Salvateur ne peut pas protéger le même joueur deux nuits de suite | La règle officielle existe, le catalogue la décrit déjà, et l'information nécessaire (la protection de la nuit précédente) est une requête d'une ligne. La contrainte est appliquée par filtrage des cibles, avec la raison affichée sur la carte. |
 | **D27** | La journée est une **phase résolue séparément**, pas des actions glissées dans la nuit | Le réveil doit annoncer des morts déjà appliqués au plateau, et le vote doit se compter sur les vivants du matin. Un `DayResolver` séparé aurait dupliqué `NightResolver` : les conséquences (protections, chagrin, capitaine, changements de rôle) sont les mêmes. Le même moteur est donc appelé deux fois, filtré par `phase` — une seule description des règles, deux moments d'application. |
 | **D28** | Le chronomètre et le retour sonore n'utilisent **aucun paquet** | `Timer.periodic`, `HapticFeedback.vibrate()` et `SystemSound.play()` viennent du SDK. Aucun paquet audio, donc aucune permission ajoutée au manifeste et la garantie « zéro réseau » reste vraie sans nouvel audit. |
+| **D39** | Le « minuteur de tour de parole » de la roadmap devient un **mode** du chronomètre de débat, pas un second minuteur | Les deux comptent le même temps et sonnent pareil ; ce qui change, c'est *qui* est chronométré. Un second chronomètre aurait dupliqué le décompte, les préréglages et le retour haptique pour une différence d'affichage. Le mode « tour de parole » ajoute le nom du joueur courant, des préréglages en secondes et un bouton « Joueur suivant » qui fait le tour de la table. |
 | **D36** | L'instantané automatique est scellé avec la **clé de la base**, pas avec un mot de passe | Une sauvegarde qui réclame un mot de passe n'est pas automatique. La clé du Keystore donne exactement la bonne propriété : l'instantané vaut la base — illisible ailleurs, perdu avec elle. L'export par mot de passe reste le seul moyen de sortir une partie de l'appareil, et les deux enveloppes se refusent mutuellement pour qu'on ne confonde jamais les deux usages. |
 | **D37** | **Un instantané par partie**, écrasé à chaque tour | Un historique d'instantanés grandirait sans fin sur un téléphone, alors que l'historique du jeu est déjà en base. Ce qu'on veut récupérer, c'est l'état d'il y a un tour, pas celui d'il y a trois parties. |
 | **D38** | La restauration **crée une partie de plus** au lieu d'écraser | Comme l'import : une restauration par erreur ne coûte alors qu'un doublon, jamais la partie en cours. |
@@ -743,6 +744,19 @@ WidgetsFlutterBinding.ensureInitialized()
 - [x] **E11 — Archivage / suppression** de partie
 - [x] **E12 — Finalisation** : `flutter analyze` clean, 129 tests verts, APK release, docs
 
+### Version 2.1.0
+
+- [x] **Bug de réactivité entre cartes** : `watchNight` écoutait `nights` sans écouter
+      `night_actions` ; la potion de vie paraissait inutilisable et le bilan du jour
+      s'ouvrait vide
+- [x] **Bascule vers l'écran de victoire** sur l'état réellement écrit, plus sur le
+      provider qui n'avait pas encore vu la transaction
+- [x] **Juge bègue et Servante dévouée** : leurs cartes de jour, dernières du catalogue
+- [x] **Rappels des pouvoirs passifs** sur les cartes concernées
+- [x] **Sauvegarde automatique chiffrée** après chaque moitié de tour, avec écran de
+      restauration
+- [x] **Tour de parole** : mode du chronomètre de débat (cf. D39)
+
 ### Version 2.0.0
 
 - [x] **V2-1 — Détection de victoire** : moteur de règles ordonné et extensible, camp
@@ -766,8 +780,8 @@ WidgetsFlutterBinding.ensureInitialized()
 
 Hors périmètre, notées ici pour ne pas être oubliées :
 
-- Rappel des pouvoirs passifs au bon moment (Ancien, Chevalier, Montreur d'ours).
-- Le Juge bègue (second vote) et la Servante dévouée, pour l'instant sans carte de jour.
-- Signature de release avec un keystore dédié (aujourd'hui la clé de debug).
-- Sauvegarde chiffrée automatique après chaque tour.
+- Signature de release avec un keystore dédié (aujourd'hui la clé de debug) — action de
+  publication, à la main de l'utilisateur.
 - Mode « écran retourné » pour montrer une carte à un joueur sans que la table la voie.
+- Ordre des sièges exploité par le moteur (Chevalier, Montreur d'ours, Renard), qui
+  permettrait d'automatiser les pouvoirs aujourd'hui rappelés au narrateur.

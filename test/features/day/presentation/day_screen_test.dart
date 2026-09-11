@@ -617,4 +617,80 @@ void main() {
 
     await disposeTree(tester);
   });
+
+  group('the debate stopwatch', () {
+    Future<void> walkToTheDebate(WidgetTester tester) async {
+      await closeNightEating('Alice');
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 2; i++) {
+        await tester.tap(find.text('Passer'));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('Le débat'), findsOneWidget);
+    }
+
+    testWidgets('can time each player in turn instead of the whole debate', (
+      tester,
+    ) async {
+      await walkToTheDebate(tester);
+
+      await tapVisible(tester, find.text('Tour de parole'));
+      await tester.pumpAndSettle();
+
+      // Thirty seconds each, starting with the first player still alive.
+      expect(find.text('00:30'), findsOneWidget);
+      expect(find.textContaining('C\'est à Bob'), findsOneWidget);
+
+      await tapVisible(tester, find.text('Démarrer'));
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.text('00:27'), findsOneWidget);
+
+      await tapVisible(tester, find.text('Joueur suivant'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('C\'est à Chloé'), findsOneWidget);
+      expect(
+        find.text('00:30'),
+        findsOneWidget,
+        reason: 'the next speaker gets a full slot',
+      );
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('the slot of a speaking turn is adjustable', (tester) async {
+      await walkToTheDebate(tester);
+      await tapVisible(tester, find.text('Tour de parole'));
+      await tester.pumpAndSettle();
+
+      await tapVisible(tester, find.text('45 s'));
+      await tester.pumpAndSettle();
+      expect(find.text('00:45'), findsOneWidget);
+
+      // Back to the free debate, the minutes come back.
+      await tapVisible(tester, find.text('Débat libre'));
+      await tester.pumpAndSettle();
+      expect(find.text('05:00'), findsOneWidget);
+      expect(find.text('45 s'), findsNothing);
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('the turn loops back to the first speaker', (tester) async {
+      await walkToTheDebate(tester);
+      await tapVisible(tester, find.text('Tour de parole'));
+      await tester.pumpAndSettle();
+
+      // Five players are still alive after Alice was eaten.
+      for (var i = 0; i < 5; i++) {
+        await tapVisible(tester, find.text('Joueur suivant'));
+        await tester.pumpAndSettle();
+      }
+
+      expect(find.textContaining('C\'est à Bob'), findsOneWidget);
+
+      await disposeTree(tester);
+    });
+  });
 }

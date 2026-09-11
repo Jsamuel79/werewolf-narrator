@@ -495,7 +495,7 @@ class _DayCardState extends State<_DayCard> {
   Widget _body(BuildContext context) => switch (widget.spec.kind) {
     DayCardKind.dawnRecap => _dawnRecap(context),
     DayCardKind.captain => _captain(context),
-    DayCardKind.debate => const DebateTimerCard(),
+    DayCardKind.debate => DebateTimerCard(speakers: _snapshot.alivePlayers),
     DayCardKind.vote => VillageVoteCard(
       snapshot: _snapshot,
       villageIdiotAlreadySpared: widget.nightContext
