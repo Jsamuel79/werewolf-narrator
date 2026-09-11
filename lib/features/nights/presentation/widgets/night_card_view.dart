@@ -214,8 +214,51 @@ class _NightCardViewState extends State<NightCardView> {
     NightCardKind.targetWithNote => _singleTarget(context, withNote: true),
     NightCardKind.confirm => _confirm(context),
     NightCardKind.witch => _witch(context),
+    NightCardKind.charmedRollCall => _charmedRollCall(context),
     NightCardKind.summary => const SizedBox.shrink(),
   };
+
+  /// No question, no answer to record: the names to wake, and a way out.
+  Widget _charmedRollCall(BuildContext context) {
+    final theme = Theme.of(context);
+    final charmed = [
+      for (final id in widget.spec.listedPlayerIds)
+        widget.snapshot.playerById(id),
+    ].nonNulls.toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final player in charmed)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                const Text('🎶'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(player.name, style: theme.textTheme.titleMedium),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 16),
+        Text(
+          charmed.length == 1
+              ? 'Un seul joueur est charmé pour l\'instant : il ouvre les yeux '
+                    'seul, et le comprendra bien assez tôt.'
+              : '${charmed.length} joueurs charmés ouvrent les yeux ensemble.',
+          style: theme.textTheme.labelSmall,
+        ),
+        const SizedBox(height: 20),
+        FilledButton.icon(
+          onPressed: widget.onSkip,
+          icon: const Icon(Icons.check),
+          label: const Text('Ils se sont reconnus'),
+        ),
+      ],
+    );
+  }
 
   Widget _singleTarget(
     BuildContext context, {
@@ -295,6 +338,9 @@ class _NightCardViewState extends State<NightCardView> {
         Text('Premier joueur', style: theme.textTheme.labelMedium),
         const SizedBox(height: 8),
         PlayerChoiceList(
+          // Both lists offer the same names: the keys are how a test — and
+          // the accessibility tree — tell one from the other.
+          key: const ValueKey('primary-targets'),
           players: _candidates,
           selectedIds: {?_targetId},
           onTap: (player) => setState(() {
@@ -306,6 +352,7 @@ class _NightCardViewState extends State<NightCardView> {
         Text(secondaryLabel, style: theme.textTheme.labelMedium),
         const SizedBox(height: 8),
         PlayerChoiceList(
+          key: const ValueKey('secondary-targets'),
           players: _candidates
               .where((player) => player.id != _targetId)
               .toList(growable: false),

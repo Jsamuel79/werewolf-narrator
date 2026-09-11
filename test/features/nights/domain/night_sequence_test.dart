@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:werewolf_narrator/features/games/domain/game_entities.dart';
 import 'package:werewolf_narrator/features/games/domain/role.dart';
 import 'package:werewolf_narrator/features/nights/domain/night_action_type.dart';
+import 'package:werewolf_narrator/features/nights/domain/night_entities.dart';
 import 'package:werewolf_narrator/features/nights/domain/night_sequence.dart';
 
 Player player(
@@ -35,14 +36,29 @@ List<String> idsOf(
   int nightNumber = 1,
   Set<String> used = const {},
   String? lastGuarded,
+  List<NightAction> actions = const [],
 }) {
   return NightSequenceBuilder.build(
     snapshot: snapshotOf(players),
     nightNumber: nightNumber,
     usedOncePerGameActionIds: used,
     lastGuardedPlayerId: lastGuarded,
+    actions: actions,
   ).map((card) => card.id).toList();
 }
+
+int _order = 0;
+
+NightAction charmOf(String first, [String? second]) => NightAction(
+  id: 'a${_order++}',
+  nightId: 'n',
+  gameId: 'g',
+  typeId: NightActionTypes.piperCharm.id,
+  targetPlayerId: first,
+  secondaryTargetPlayerId: second,
+  orderIndex: _order,
+  createdAt: DateTime(2026),
+);
 
 void main() {
   final classicTable = [
@@ -177,6 +193,111 @@ void main() {
       idsOf(table, nightNumber: 2),
       contains(NightActionTypes.whiteWerewolfVictim.id),
     );
+  });
+
+
+  /// Point 5: the ritual the rulebook asks for every single night — all the
+  /// charmed players, old and new together, wake up and recognise each other.
+  group('the roll call of the charmed', () {
+    final table = [
+      player('piper', Roles.piper.id),
+      player('dan', Roles.villager.id),
+      player('eve', Roles.villager.id),
+      player('flo', Roles.villager.id),
+      player('wolf', Roles.werewolf.id),
+    ];
+
+    NightCardSpec? rollCallOf(
+      List<Player> players, {
+      int nightNumber = 1,
+      List<NightAction> actions = const [],
+    }) {
+      final cards = NightSequenceBuilder.build(
+        snapshot: snapshotOf(players),
+        nightNumber: nightNumber,
+        usedOncePerGameActionIds: const {},
+        actions: actions,
+      );
+      for (final card in cards) {
+        if (card.kind == NightCardKind.charmedRollCall) return card;
+      }
+      return null;
+    }
+
+    test('never shows up on a night where nobody is charmed', () {
+      expect(rollCallOf(table), isNull);
+      expect(idsOf(table), isNot(contains(NightCardSpec.charmedRollCallId)));
+    });
+
+    test('appears as soon as the Piper has designated somebody tonight', () {
+      final ids = idsOf(table, actions: [charmOf('dan', 'eve')]);
+
+      expect(
+        ids,
+        containsAllInOrder([
+          NightActionTypes.piperCharm.id,
+          NightCardSpec.charmedRollCallId,
+          NightCardSpec.summaryId,
+        ]),
+        reason: 'the ritual follows the designation, before the recap',
+      );
+    });
+
+    test('lists tonight\'s charmed players', () {
+      final card = rollCallOf(table, actions: [charmOf('dan', 'eve')])!;
+      expect(card.listedPlayerIds, {'dan', 'eve'});
+    });
+
+    test('lists the charms of every past night together with tonight\'s', () {
+      final secondNight = [
+        player('piper', Roles.piper.id),
+        player('dan', Roles.villager.id, charmed: true),
+        player('eve', Roles.villager.id, charmed: true),
+        player('flo', Roles.villager.id),
+        player('wolf', Roles.werewolf.id),
+      ];
+
+      final card = rollCallOf(
+        secondNight,
+        nightNumber: 2,
+        actions: [charmOf('flo')],
+      )!;
+
+      expect(card.listedPlayerIds, {'dan', 'eve', 'flo'});
+      expect(card.prompt, contains('tous'));
+    });
+
+    test('shows up on a later night even before the Piper has acted', () {
+      final secondNight = [
+        player('piper', Roles.piper.id),
+        player('dan', Roles.villager.id, charmed: true),
+        player('eve', Roles.villager.id),
+      ];
+
+      expect(rollCallOf(secondNight, nightNumber: 2)?.listedPlayerIds, {'dan'});
+    });
+
+    test('leaves the dead out of the roll call', () {
+      final board = [
+        player('piper', Roles.piper.id),
+        player('dan', Roles.villager.id, charmed: true, alive: false),
+        player('eve', Roles.villager.id, charmed: true),
+        player('wolf', Roles.werewolf.id),
+      ];
+
+      expect(rollCallOf(board, nightNumber: 2)!.listedPlayerIds, {'eve'});
+    });
+
+    test('goes away with the Piper', () {
+      final board = [
+        player('piper', Roles.piper.id, alive: false),
+        player('dan', Roles.villager.id, charmed: true),
+        player('eve', Roles.villager.id),
+        player('wolf', Roles.werewolf.id),
+      ];
+
+      expect(rollCallOf(board, nightNumber: 2), isNull);
+    });
   });
 
   group('targets', () {

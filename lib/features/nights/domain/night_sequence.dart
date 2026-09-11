@@ -23,6 +23,10 @@ enum NightCardKind {
   /// The witch and her two potions — the only card with three buttons.
   witch,
 
+  /// No question: the list of everybody the Piper has charmed so far, to be
+  /// woken together so they recognise each other.
+  charmedRollCall,
+
   /// The recap that closes the night.
   summary,
 }
@@ -55,6 +59,7 @@ class NightCardSpec {
     this.role,
     this.scope = NightTargetScope.alive,
     this.excludedPlayerIds = const {},
+    this.listedPlayerIds = const {},
     this.hint,
   });
 
@@ -78,10 +83,15 @@ class NightCardSpec {
   /// protection, for instance.
   final Set<String> excludedPlayerIds;
 
+  /// Players the card is *about* rather than players it asks to choose from —
+  /// the charmed, on the roll-call card. In seat order.
+  final Set<String> listedPlayerIds;
+
   /// One extra line explaining a restriction, shown under the prompt.
   final String? hint;
 
   static const String summaryId = 'summary';
+  static const String charmedRollCallId = 'charmedRollCall';
 }
 
 /// Builds the ordered list of cards for one night.
@@ -117,6 +127,11 @@ abstract final class NightSequenceBuilder {
     required int nightNumber,
     required Set<String> usedOncePerGameActionIds,
     String? lastGuardedPlayerId,
+
+    /// What has already been recorded tonight. Only the roll call of the
+    /// charmed depends on it: it has to count the names the Piper gave a
+    /// minute ago, which are not on the board until the night is resolved.
+    List<NightAction> actions = const [],
   }) {
     final aliveRoles = snapshot.aliveRoleIds;
     final cards = <NightCardSpec>[];
@@ -158,6 +173,17 @@ abstract final class NightSequenceBuilder {
           snapshot: snapshot,
         ),
       );
+
+      // The rulebook asks for a ritual right after the Piper designates: every
+      // charmed player — tonight's and every night before — opens their eyes
+      // together and recognises the others. It is not a choice, so it is not
+      // an action; it is a step the narrator must not skip, so it is a card.
+      if (typeId == NightActionTypes.piperCharm.id) {
+        final charmed = charmedSoFar(snapshot: snapshot, actions: actions);
+        if (charmed.isNotEmpty) {
+          cards.add(_charmedRollCallCard(charmed));
+        }
+      }
     }
 
     cards.add(
@@ -170,6 +196,44 @@ abstract final class NightSequenceBuilder {
       ),
     );
     return cards;
+  }
+
+  /// Everybody under the Piper's spell at this point of the night: the board's
+  /// own charmed players — the charm is never lifted — plus the names given on
+  /// tonight's card, which only reach the board when the night is resolved.
+  /// Dead players are left out: they cannot open their eyes.
+  static Set<String> charmedSoFar({
+    required GameSnapshot snapshot,
+    required List<NightAction> actions,
+  }) {
+    final tonight = <String>{};
+    for (final action in actions) {
+      if (action.type.effect != ActionEffect.charm) continue;
+      final first = action.targetPlayerId;
+      final second = action.secondaryTargetPlayerId;
+      if (first != null) tonight.add(first);
+      if (second != null) tonight.add(second);
+    }
+
+    return {
+      for (final player in snapshot.alivePlayers)
+        if (player.isCharmed || tonight.contains(player.id)) player.id,
+    };
+  }
+
+  static NightCardSpec _charmedRollCallCard(Set<String> charmed) {
+    return NightCardSpec(
+      id: NightCardSpec.charmedRollCallId,
+      kind: NightCardKind.charmedRollCall,
+      title: 'Les charmés se reconnaissent',
+      prompt:
+          'Fais ouvrir les yeux à tous les joueurs charmés — les anciens '
+          'comme ceux de cette nuit — pour qu\'ils se reconnaissent entre eux, '
+          'puis rendors-les.',
+      emoji: '🎶',
+      role: Roles.piper,
+      listedPlayerIds: charmed,
+    );
   }
 
   static NightCardSpec _witchCard({

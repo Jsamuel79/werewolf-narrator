@@ -389,7 +389,7 @@ Voleur → Cupidon → Deux Sœurs → Trois Frères → Enfant sauvage
       → Voyante → Renard → Salvateur
       → Loups-Garous → Petite Fille → Grand Méchant Loup
       → Infect Père des Loups → Loup-Garou Blanc
-      → Sorcière → Joueur de Flûte → Corbeau
+      → Sorcière → Joueur de Flûte → 🎶 Appel des charmés → Corbeau
       → 🌅 Bilan de la nuit
 ```
 
@@ -407,6 +407,7 @@ impaires (il ne dévore qu'une nuit sur deux).
 | `targetWithNote` | un joueur + une note libre | Renard, Corbeau |
 | `confirm` | question fermée (« c'est fait » / « rien cette nuit ») | Deux Sœurs, Trois Frères, Petite Fille, Voleur (+ choix de la carte volée) |
 | `witch` | trois boutons : Sauver / Empoisonner / Ne rien faire | Sorcière |
+| `charmedRollCall` | aucune question : la liste des charmés à réveiller ensemble | Joueur de Flûte *(v2.2)* |
 | `summary` | le bilan calculé par `NightResolver`, puis « Valider et passer au jour » | — |
 
 Les cibles proposées dépendent du `NightTargetScope` de la carte : la meute ne peut pas
@@ -423,6 +424,26 @@ dernière nuit utile peut n'offrir qu'un seul nom, donc sa seconde cible est **f
 **Sorcière** : la potion de vie ne peut ressusciter que la victime désignée par les loups
 **cette nuit** (bouton grisé tant que la meute n'a pas choisi) ; la potion de mort ouvre
 la liste des vivants. Chaque potion disparaît une fois bue.
+
+### L'appel des charmés *(v2.2)*
+
+La règle du Joueur de Flûte ne s'arrête pas à la désignation : chaque nuit, le meneur
+réveille **tous** les joueurs charmés — les anciens *et* ceux de la nuit — pour qu'ils se
+reconnaissent, puis les rendort. Ce n'est pas un choix, c'est une mise en scène
+obligatoire, et rien ne la rappelait au narrateur.
+
+Elle prend donc la forme d'une carte, insérée juste après celle du Flûtiste :
+
+- elle **n'enregistre aucune action** — il n'y a rien à décider, seulement à faire ;
+- elle liste `NightSequenceBuilder.charmedSoFar(snapshot, actions)` : les charmés déjà
+  inscrits au plateau **plus** les noms donnés il y a une minute, qui n'atteindront le
+  plateau qu'à la résolution de la nuit ;
+- les **morts** en sont exclus : ils n'ouvrent plus les yeux ;
+- elle **n'apparaît pas** s'il n'y a personne à réveiller, ni si le Flûtiste est mort —
+  la pile ne contient jamais de carte vide.
+
+La pile grandit donc d'une carte au moment où le Flûtiste valide : c'est voulu, et c'est
+ce qui amène le narrateur sur le rituel sans qu'il ait à y penser.
 
 ### Le bandeau « Info narrateur » *(v2.2)*
 
@@ -771,6 +792,7 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D29** | « Rejouer » **crée une nouvelle partie** au lieu de réinitialiser l'ancienne | Une partie terminée est une archive : l'historique, les bilans et les rôles révélés doivent rester consultables. Réinitialiser les lignes existantes les détruirait. |
 | **D40** | La mort du Joueur de Flûte **n'est pas** une condition de victoire du Village | Règle officielle : le Village gagne par élimination de tous les Loups-Garous, point. Le moteur ne contenait aucune logique en ce sens, mais rien ne le disait non plus : un test de non-régression et cette ligne verrouillent le comportement, parce que l'intuition de table est exactement l'inverse. Le Joueur de Flûte n'est pas non plus crédité d'une victoire du Village : il joue seul et perd seul. |
 | **D41** | Un Joueur de Flûte amoureux gagne **avec** son amoureux vivant | Deux règles officielles se rencontrent : « les Amoureux gagnent ensemble » et « le Joueur de Flûte gagne seul ». Les faire s'exclure obligerait à trancher au détriment de Cupidon ; les faire cohabiter ne coûte qu'un identifiant de plus dans `winnerPlayerIds`, et c'est la lecture que retiennent les tables. Le camp affiché reste celui du Joueur de Flûte — c'est sa condition qui a clos la partie. |
+| **D46** | L'appel des charmés est une **carte sans action enregistrée** | Une étape rituelle n'est pas une décision : l'inscrire dans l'historique le remplirait de lignes « le narrateur a fait ce qu'il devait faire ». Mais la sauter serait pire — c'est précisément l'étape qu'on oublie. Une carte sans conséquence, qui disparaît quand elle n'a personne à nommer, coûte un geste et garantit qu'elle est vue. |
 | **D45** | La saisie des voix n'a **aucune borne haute**, et le nombre de vivants n'en sert pas non plus | Borner au nombre de vivants semble logique et ne l'est pas : le narrateur peut compter des procurations, jouer une variante où une voix pèse plus, ou simplement saisir un total avant de le corriger. Le rôle de l'app est de compter ce qu'on lui dit, pas de contredire quelqu'un qui a la table sous les yeux. La seule validation est « un entier positif » — et même elle se contente d'ignorer le reste au lieu d'afficher une erreur. |
 | **D44** | Les informations réservées au narrateur ne **contraignent jamais** l'interface | Griser « Sauver » parce que la victime est déjà protégée déciderait à la place du narrateur — or certaines tables laissent la Sorcière gâcher sa potion, et c'est une décision de mise en scène, pas de règle. Le bandeau informe et se tait. Corollaire : il est stylé à l'opposé du reste de la carte, parce qu'un texte affiché sur l'écran d'un narrateur finit tôt ou tard par être lu à voix haute s'il ressemble à une consigne. |
 | **D43** | Le charme peut ne viser **qu'un seul joueur** : `secondaryTargetOptional` sur l'action | La règle dit « 1 ou 2 joueurs », mais le catalogue exigeait deux cibles. Une fois les déjà-charmés retirés de la liste, la dernière nuit n'en propose souvent plus qu'un : la carte devenait impossible à valider et la victoire du Flûtiste inatteignable. Le drapeau est porté par l'action, pas par un `if` sur son identifiant, donc Cupidon continue d'exiger ses deux amoureux. |

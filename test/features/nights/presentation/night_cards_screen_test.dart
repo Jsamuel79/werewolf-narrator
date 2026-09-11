@@ -506,4 +506,139 @@ void main() {
       await disposeTree(tester);
     });
   });
+
+
+  /// Point 5: the ritual of the charmed, which the narrator has to run every
+  /// night — and which the app never asked them to.
+  group('the charmed recognise each other', () {
+    /// Turns Alice into the Piper, so the deck carries his card.
+    Future<void> seatThePiper() async {
+      final alice = snapshot.players.firstWhere((p) => p.name == 'Alice');
+      await games.savePlayers([alice.copyWith(roleId: Roles.piper.id)]);
+      snapshot = (await games.loadGame(snapshot.game.id))!;
+    }
+
+    /// Answers the Piper's card, which is the third of the deck.
+    Future<void> charm(
+      WidgetTester tester,
+      String first, [
+      String? second,
+    ]) async {
+      // Both halves of the card list the same names, so each tap is scoped to
+      // its own list. `.last` picks the card on top: the deck paints the next
+      // one behind it.
+      Future<void> pick(String key, String name) async {
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(ValueKey(key)).last,
+            matching: find.widgetWithText(ChoiceChip, name),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await pick('primary-targets', first);
+      if (second != null) await pick('secondary-targets', second);
+      await tester.tap(find.widgetWithText(FilledButton, 'Valider').last);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> skipTo(WidgetTester tester, int cards) async {
+      for (var i = 0; i < cards; i++) {
+        await tester.tap(find.text('Passer'));
+        await tester.pumpAndSettle();
+      }
+    }
+
+    testWidgets('no roll call before anybody is charmed', (tester) async {
+      await seatThePiper();
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+
+      // Pack, witch, Piper, recap — no ritual card in an empty night.
+      expect(find.textContaining('Carte 1 sur 4'), findsOneWidget);
+      expect(find.text('Les charmés se reconnaissent'), findsNothing);
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('the ritual card follows the designation straight away', (
+      tester,
+    ) async {
+      await seatThePiper();
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+
+      await skipTo(tester, 2);
+      await charm(tester, 'Chloé', 'David');
+
+      expect(find.text('Les charmés se reconnaissent'), findsOneWidget);
+      expect(
+        find.textContaining('les anciens comme ceux de cette nuit'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('2 joueurs charmés'), findsOneWidget);
+      // The deck grew by one card, and we are standing on it.
+      expect(find.textContaining('Carte 4 sur 5'), findsOneWidget);
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('night two lists the old charmed alongside the new', (
+      tester,
+    ) async {
+      await seatThePiper();
+
+      // Night one, played through the repository: Chloé and David are charmed.
+      await nights.addAction(
+        nightId: night.id,
+        typeId: NightActionTypes.piperCharm.id,
+        actorPlayerId: idOf('Alice'),
+        targetPlayerId: idOf('Chloé'),
+        secondaryTargetPlayerId: idOf('David'),
+      );
+      await nights.resolveNight(night.id);
+      await nights.resolveDay(night.id);
+      night = await nights.startNight(snapshot.game.id);
+      snapshot = (await games.loadGame(snapshot.game.id))!;
+
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+
+      await skipTo(tester, 2);
+      // Only the wolf is left to charm — one name is enough.
+      await charm(tester, 'Loup');
+
+      expect(find.text('Les charmés se reconnaissent'), findsOneWidget);
+      expect(find.textContaining('3 joueurs charmés'), findsOneWidget);
+      for (final name in ['Chloé', 'David', 'Loup']) {
+        expect(
+          find.text(name),
+          findsWidgets,
+          reason: '$name was charmed and must be woken',
+        );
+      }
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('the roll call stands on its own, recording nothing', (
+      tester,
+    ) async {
+      await seatThePiper();
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+
+      await skipTo(tester, 2);
+      await charm(tester, 'Chloé', 'David');
+      await tester.tap(find.text('Ils se sont reconnus'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Bilan de la nuit'), findsOneWidget);
+      // One action for the night: the charm itself.
+      expect((await nights.loadNight(night.id))!.actions, hasLength(1));
+
+      await disposeTree(tester);
+    });
+  });
 }

@@ -453,6 +453,7 @@ class NightContext {
     nightNumber: detail.night.nightNumber,
     usedOncePerGameActionIds: usedOncePerGameActionIds,
     lastGuardedPlayerId: lastGuardedPlayerId,
+    actions: nightActions,
   );
 
   /// Actions recorded during the night half of this round.
