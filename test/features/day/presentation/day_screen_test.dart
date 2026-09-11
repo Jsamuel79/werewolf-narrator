@@ -693,4 +693,109 @@ void main() {
       await disposeTree(tester);
     });
   });
+
+
+  /// Bug 4: five players around the table, forty hands counted.
+  ///
+  /// The stepper was the only way in, so anything past a handful of votes meant
+  /// a handful of taps. The app's job is to count what the narrator says, not
+  /// to police it.
+  group('typing the number of voices instead of tapping it out', () {
+    Future<void> walkToTheVote(WidgetTester tester) async {
+      await closeNightEating('Alice');
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.text('Passer'));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('Le vote du village'), findsOneWidget);
+    }
+
+    Future<void> typeVotes(
+      WidgetTester tester,
+      String name,
+      String value,
+    ) async {
+      final field = find.byKey(ValueKey('vote-${idOf(name)}')).last;
+      await tester.ensureVisible(field);
+      await tester.pumpAndSettle();
+      await tester.enterText(field, value);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('accepts forty voices on a table of five', (tester) async {
+      await walkToTheVote(tester);
+
+      await typeVotes(tester, 'Loup', '40');
+
+      expect(find.textContaining('Loup est éliminé'), findsOneWidget);
+
+      await tapVisible(tester, find.text('Valider le vote'));
+      await tester.pumpAndSettle();
+
+      final vote = (await nights.loadNight(night.id))!.actions.firstWhere(
+        (a) => a.typeId == NightActionTypes.villageVote.id,
+      );
+      expect(vote.targetPlayerId, idOf('Loup'));
+      expect(
+        vote.detail,
+        contains('Loup 40'),
+        reason: 'the count is stored as typed, not clamped',
+      );
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('counts a typed number against a tapped one', (tester) async {
+      await walkToTheVote(tester);
+
+      await typeVotes(tester, 'Loup', '12');
+      await typeVotes(tester, 'Bob', '30');
+
+      expect(find.textContaining('Bob est éliminé'), findsOneWidget);
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('the stepper still works, and picks up where typing left off', (
+      tester,
+    ) async {
+      await walkToTheVote(tester);
+
+      await typeVotes(tester, 'Loup', '7');
+      final row = find
+          .ancestor(of: find.text('Loup'), matching: find.byType(Row))
+          .last;
+      await tester.tap(
+        find.descendant(
+          of: row,
+          matching: find.byIcon(Icons.add_circle_outline),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<TextField>(find.byKey(ValueKey('vote-${idOf('Loup')}')).last)
+            .controller
+            ?.text,
+        '8',
+      );
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('an impossible answer is simply not counted', (tester) async {
+      await walkToTheVote(tester);
+
+      await typeVotes(tester, 'Loup', 'beaucoup');
+      expect(find.textContaining('Aucune voix'), findsOneWidget);
+
+      await typeVotes(tester, 'Loup', '-3');
+      expect(find.textContaining('Aucune voix'), findsOneWidget);
+
+      await disposeTree(tester);
+    });
+  });
 }

@@ -17,12 +17,18 @@ class VoteEntry {
   final String? captainVoteTargetId;
 }
 
-/// Counting the raised hands: one stepper per living player.
+/// Counting the raised hands: one editable count per living player.
 ///
 /// The narrator does not record individual ballots — around a table, they count
 /// hands and say a number. The captain's designated target gets the extra voice
 /// their double vote is worth, and the running result is shown live so nothing
 /// is applied by surprise.
+///
+/// The count is **typed as well as tapped**, and carries no upper bound: the
+/// stepper alone meant one tap per hand, and the app has no business deciding
+/// how many hands a table may raise (proxy votes, a variant, a narrator
+/// counting something else entirely). The only thing it refuses is an answer
+/// that is not a number of voices at all — empty, negative, or text.
 class VillageVoteCard extends StatefulWidget {
   const VillageVoteCard({
     required this.snapshot,
@@ -41,9 +47,27 @@ class VillageVoteCard extends StatefulWidget {
 
 class _VillageVoteCardState extends State<VillageVoteCard> {
   final Map<String, int> _votes = {};
+  final Map<String, TextEditingController> _controllers = {};
   String? _captainTargetId;
 
   Player? get _captain => widget.snapshot.aliveCaptain;
+
+  /// One controller per living player, created on first sight and kept for as
+  /// long as the card lives so typing never fights with the rebuilds the live
+  /// result triggers.
+  TextEditingController _controllerFor(Player player) =>
+      _controllers.putIfAbsent(
+        player.id,
+        () => TextEditingController(text: _votes[player.id]?.toString() ?? ''),
+      );
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   VoteResult get _result => VoteResolver.resolve(
     players: widget.snapshot.players,
@@ -53,12 +77,31 @@ class _VillageVoteCardState extends State<VillageVoteCard> {
   );
 
   void _bump(String playerId, int delta) {
+    _set(playerId, (_votes[playerId] ?? 0) + delta, echoToField: true);
+  }
+
+  /// What the narrator typed. Anything that is not a count of voices — text, a
+  /// negative number, an empty field — reads as « no voice yet » rather than
+  /// as an error: they are still typing.
+  void _type(String playerId, String raw) {
+    _set(playerId, int.tryParse(raw.trim()) ?? 0, echoToField: false);
+  }
+
+  void _set(String playerId, int count, {required bool echoToField}) {
     setState(() {
-      final next = (_votes[playerId] ?? 0) + delta;
-      if (next <= 0) {
+      if (count <= 0) {
         _votes.remove(playerId);
       } else {
-        _votes[playerId] = next;
+        _votes[playerId] = count;
+      }
+      if (echoToField) {
+        final controller = _controllers[playerId];
+        if (controller != null) {
+          controller.text = count <= 0 ? '' : '$count';
+          controller.selection = TextSelection.collapsed(
+            offset: controller.text.length,
+          );
+        }
       }
     });
   }
@@ -98,11 +141,14 @@ class _VillageVoteCardState extends State<VillageVoteCard> {
         for (final player in alive)
           _VoteRow(
             player: player,
+            controller: _controllerFor(player),
             votes: _votes[player.id] ?? 0,
-            extraFromCaptain:
-                captain != null && _captainTargetId == player.id ? 1 : 0,
+            extraFromCaptain: captain != null && _captainTargetId == player.id
+                ? 1
+                : 0,
             onAdd: () => _bump(player.id, 1),
             onRemove: () => _bump(player.id, -1),
+            onTyped: (raw) => _type(player.id, raw),
           ),
         if (captain != null) ...[
           const SizedBox(height: 16),
@@ -161,17 +207,21 @@ class _VillageVoteCardState extends State<VillageVoteCard> {
 class _VoteRow extends StatelessWidget {
   const _VoteRow({
     required this.player,
+    required this.controller,
     required this.votes,
     required this.extraFromCaptain,
     required this.onAdd,
     required this.onRemove,
+    required this.onTyped,
   });
 
   final Player player;
+  final TextEditingController controller;
   final int votes;
   final int extraFromCaptain;
   final VoidCallback onAdd;
   final VoidCallback onRemove;
+  final ValueChanged<String> onTyped;
 
   @override
   Widget build(BuildContext context) {
@@ -191,12 +241,20 @@ class _VoteRow extends StatelessWidget {
             visualDensity: VisualDensity.compact,
           ),
           SizedBox(
-            width: 34,
-            child: Text(
-              '$total',
+            width: 52,
+            child: TextField(
+              key: ValueKey('vote-${player.id}'),
+              controller: controller,
+              onChanged: onTyped,
               textAlign: TextAlign.center,
+              keyboardType: TextInputType.number,
               style: theme.textTheme.titleMedium?.copyWith(
-                color: total > 0 ? AppTheme.soloColor : null,
+                color: votes > 0 ? AppTheme.soloColor : null,
+              ),
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: '0',
+                contentPadding: EdgeInsets.symmetric(vertical: 6),
               ),
             ),
           ),
@@ -204,6 +262,27 @@ class _VoteRow extends StatelessWidget {
             onPressed: onAdd,
             icon: const Icon(Icons.add_circle_outline),
             visualDensity: VisualDensity.compact,
+          ),
+          // The captain's extra voice is shown beside the count rather than
+          // folded into it: the field holds the hands that were raised, and
+          // nothing the narrator did not type.
+          SizedBox(
+            width: 30,
+            child: extraFromCaptain > 0
+                ? Text(
+                    '+$extraFromCaptain⭐',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppTheme.soloColor,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          SizedBox(
+            width: 26,
+            child: Text(
+              total > 0 ? '=$total' : '',
+              style: theme.textTheme.labelSmall,
+            ),
           ),
         ],
       ),

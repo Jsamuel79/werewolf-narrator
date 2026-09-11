@@ -545,6 +545,19 @@ totaux ; le moteur en tire une élimination.
 5. L'**Idiot du Village** désigné par le vote est démasqué mais **survit** — une seule
    fois dans la partie ; ensuite il est éliminé comme tout le monde.
 
+### Saisie des voix *(v2.2)*
+
+Chaque joueur vivant a un **champ numérique** encadré par un `-` et un `+` : le narrateur
+tape le nombre qu'il vient de compter, ou l'incrémente main par main. Les deux chemins
+écrivent la même valeur, et le `+` reprend à partir de ce qui a été tapé.
+
+**Aucun plafond** (cf. D45). Une valeur qui n'est pas un nombre de voix — champ vide,
+texte, nombre négatif — vaut « pas encore de voix » plutôt qu'une erreur : le narrateur
+est peut-être encore en train de taper.
+
+La voix double du Capitaine est affichée **à côté** du champ (`+1⭐`) et non fondue
+dedans : le champ contient les mains levées, et rien que ce que le narrateur a saisi.
+
 ---
 
 ## 11. Moteur de fin de partie *(v2)*
@@ -758,6 +771,7 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D29** | « Rejouer » **crée une nouvelle partie** au lieu de réinitialiser l'ancienne | Une partie terminée est une archive : l'historique, les bilans et les rôles révélés doivent rester consultables. Réinitialiser les lignes existantes les détruirait. |
 | **D40** | La mort du Joueur de Flûte **n'est pas** une condition de victoire du Village | Règle officielle : le Village gagne par élimination de tous les Loups-Garous, point. Le moteur ne contenait aucune logique en ce sens, mais rien ne le disait non plus : un test de non-régression et cette ligne verrouillent le comportement, parce que l'intuition de table est exactement l'inverse. Le Joueur de Flûte n'est pas non plus crédité d'une victoire du Village : il joue seul et perd seul. |
 | **D41** | Un Joueur de Flûte amoureux gagne **avec** son amoureux vivant | Deux règles officielles se rencontrent : « les Amoureux gagnent ensemble » et « le Joueur de Flûte gagne seul ». Les faire s'exclure obligerait à trancher au détriment de Cupidon ; les faire cohabiter ne coûte qu'un identifiant de plus dans `winnerPlayerIds`, et c'est la lecture que retiennent les tables. Le camp affiché reste celui du Joueur de Flûte — c'est sa condition qui a clos la partie. |
+| **D45** | La saisie des voix n'a **aucune borne haute**, et le nombre de vivants n'en sert pas non plus | Borner au nombre de vivants semble logique et ne l'est pas : le narrateur peut compter des procurations, jouer une variante où une voix pèse plus, ou simplement saisir un total avant de le corriger. Le rôle de l'app est de compter ce qu'on lui dit, pas de contredire quelqu'un qui a la table sous les yeux. La seule validation est « un entier positif » — et même elle se contente d'ignorer le reste au lieu d'afficher une erreur. |
 | **D44** | Les informations réservées au narrateur ne **contraignent jamais** l'interface | Griser « Sauver » parce que la victime est déjà protégée déciderait à la place du narrateur — or certaines tables laissent la Sorcière gâcher sa potion, et c'est une décision de mise en scène, pas de règle. Le bandeau informe et se tait. Corollaire : il est stylé à l'opposé du reste de la carte, parce qu'un texte affiché sur l'écran d'un narrateur finit tôt ou tard par être lu à voix haute s'il ressemble à une consigne. |
 | **D43** | Le charme peut ne viser **qu'un seul joueur** : `secondaryTargetOptional` sur l'action | La règle dit « 1 ou 2 joueurs », mais le catalogue exigeait deux cibles. Une fois les déjà-charmés retirés de la liste, la dernière nuit n'en propose souvent plus qu'un : la carte devenait impossible à valider et la victoire du Flûtiste inatteignable. Le drapeau est porté par l'action, pas par un `if` sur son identifiant, donc Cupidon continue d'exiger ses deux amoureux. |
 | **D42** | Un Joueur de Flûte **infecté** perd sa condition de victoire et gagne avec la meute | L'infection réécrit `roleId` (règle déjà en place depuis la v1) : la règle `piper` cherche un survivant dont le rôle est `piper` et ne le trouve plus. C'est cohérent avec l'Infect Père des Loups, dont le pouvoir est précisément de faire changer de camp, et cela évite un statut « ancien rôle » que rien d'autre n'utiliserait. |
