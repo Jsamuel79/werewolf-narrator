@@ -80,7 +80,15 @@ abstract final class NightResolver {
           final actor = action.actorPlayerId;
           final newRoleId = action.details['newRoleId'] as String?;
           if (actor != null && newRoleId != null) {
-            roleChanges.add(RoleChange(playerId: actor, newRoleId: newRoleId));
+            roleChanges.add(
+              RoleChange(
+                playerId: actor,
+                newRoleId: newRoleId,
+                // Taking someone else's card can mean starting over with a
+                // clean slate — the Devoted Servant says so in her action.
+                resetStatuses: action.details['resetStatuses'] == true,
+              ),
+            );
           }
 
         case ActionEffect.captain:
@@ -186,10 +194,22 @@ abstract final class NightResolver {
   }) {
     final deathById = {for (final d in outcome.deaths) d.playerId: d};
     final charmed = outcome.charmedPlayerIds.toSet();
-    final roleById = {
-      for (final change in outcome.roleChanges) change.playerId: change.newRoleId,
+    final changeById = {
+      for (final change in outcome.roleChanges) change.playerId: change,
     };
     final couple = outcome.newCouple;
+
+    // A player whose statuses are wiped drags their partner out of the couple
+    // too: the link is symmetric, and half a couple is not a couple.
+    final resetIds = <String>{
+      for (final change in outcome.roleChanges)
+        if (change.resetStatuses) change.playerId,
+    };
+    final orphanedPartnerIds = <String>{
+      for (final player in players)
+        if (resetIds.contains(player.id) && player.coupledWithPlayerId != null)
+          player.coupledWithPlayerId!,
+    };
 
     return players.map((player) {
       var updated = player;
@@ -204,9 +224,19 @@ abstract final class NightResolver {
       if (charmed.contains(player.id)) {
         updated = updated.copyWith(isCharmed: true);
       }
-      final newRole = roleById[player.id];
-      if (newRole != null) {
-        updated = updated.copyWith(roleId: newRole);
+      final change = changeById[player.id];
+      if (change != null) {
+        updated = updated.copyWith(roleId: change.newRoleId);
+        if (change.resetStatuses) {
+          updated = updated.copyWith(
+            clearCouple: true,
+            isCaptain: false,
+            isCharmed: false,
+          );
+        }
+      }
+      if (orphanedPartnerIds.contains(player.id)) {
+        updated = updated.copyWith(clearCouple: true);
       }
       if (couple != null) {
         if (player.id == couple.$1) {

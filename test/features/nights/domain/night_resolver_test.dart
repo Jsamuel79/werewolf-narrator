@@ -539,4 +539,87 @@ void main() {
       expect(actions, contains(NightActionTypes.captainSuccession.id));
     });
   });
+
+  group('taking somebody else\'s card', () {
+    test('the Devoted Servant starts her new life with a clean slate', () {
+      final players = [
+        player('servant', role: 'servant', captain: true, lover: 'chloe'),
+        player('chloe', lover: 'servant'),
+        player('bob'),
+        player('wolf', role: 'werewolf'),
+      ];
+      final outcome = NightResolver.resolve(
+        players: players,
+        actions: [
+          action(NightActionTypes.villageVote, target: 'wolf'),
+          action(
+            NightActionTypes.servantSwap,
+            actor: 'servant',
+            target: 'wolf',
+            details: const {'newRoleId': 'werewolf', 'resetStatuses': true},
+          ),
+        ],
+        nightNumber: 2,
+      );
+
+      final after = NightResolver.apply(players: players, outcome: outcome);
+      final servant = after.firstWhere((p) => p.id == 'servant');
+
+      expect(servant.roleId, 'werewolf');
+      expect(servant.isCaptain, isFalse);
+      expect(servant.coupledWithPlayerId, isNull);
+      expect(
+        after.firstWhere((p) => p.id == 'chloe').coupledWithPlayerId,
+        isNull,
+        reason: 'her partner is single again too',
+      );
+      expect(
+        after.firstWhere((p) => p.id == 'chloe').isAlive,
+        isTrue,
+        reason: 'leaving a couple is not dying of grief',
+      );
+    });
+
+    test('an infection changes the role without touching the statuses', () {
+      final players = [
+        player('alice', captain: true, lover: 'bob'),
+        player('bob', lover: 'alice'),
+        player('wolf', role: 'infectiousWolf'),
+      ];
+      final outcome = NightResolver.resolve(
+        players: players,
+        actions: [
+          action(NightActionTypes.werewolfVictim, target: 'alice'),
+          action(NightActionTypes.infectiousWolfInfect, target: 'alice'),
+        ],
+        nightNumber: 1,
+      );
+
+      final after = NightResolver.apply(players: players, outcome: outcome);
+      final alice = after.firstWhere((p) => p.id == 'alice');
+
+      expect(alice.roleId, 'werewolf');
+      expect(alice.isAlive, isTrue);
+      expect(alice.isCaptain, isTrue);
+      expect(alice.coupledWithPlayerId, 'bob');
+    });
+
+    test('the reset survives a round trip through JSON', () {
+      const outcome = NightOutcome(
+        nightNumber: 1,
+        roleChanges: [
+          RoleChange(
+            playerId: 'servant',
+            newRoleId: 'seer',
+            resetStatuses: true,
+          ),
+        ],
+      );
+
+      expect(
+        NightOutcome.fromJson(outcome.toJson()).roleChanges.single.resetStatuses,
+        isTrue,
+      );
+    });
+  });
 }

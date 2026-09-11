@@ -306,6 +306,30 @@ abstract final class NightActionTypes {
     oncePerGame: true,
   );
 
+  static const NightActionType judgeSecondVote = NightActionType(
+    id: 'judgeSecondVote',
+    label: 'Second vote du Juge bègue',
+    prompt: 'Le Juge bègue fait-il son signe pour réclamer un second vote ?',
+    emoji: '⚖️',
+    effect: ActionEffect.note,
+    roleId: 'stutteringJudge',
+    phase: ActionPhase.day,
+    requiresTarget: false,
+    oncePerGame: true,
+  );
+
+  static const NightActionType servantSwap = NightActionType(
+    id: 'servantSwap',
+    label: 'Dévouement de la Servante',
+    prompt: 'La Servante dévouée prend-elle la place du joueur éliminé ?',
+    emoji: '🙇',
+    effect: ActionEffect.roleChange,
+    roleId: 'servant',
+    phase: ActionPhase.day,
+    oncePerGame: true,
+    detailLabel: 'Rôle repris',
+  );
+
   static const NightActionType villageVote = NightActionType(
     id: 'villageVote',
     label: 'Vote du village',
@@ -314,6 +338,17 @@ abstract final class NightActionTypes {
     effect: ActionEffect.kill,
     phase: ActionPhase.day,
     deathCause: 'Éliminé par le vote du village',
+    detailLabel: 'Détail du vote',
+  );
+
+  static const NightActionType villageSecondVote = NightActionType(
+    id: 'villageSecondVote',
+    label: 'Second vote du village',
+    prompt: 'Qui le village élimine-t-il lors du second vote ?',
+    emoji: '🗳️',
+    effect: ActionEffect.kill,
+    phase: ActionPhase.day,
+    deathCause: 'Éliminé par le second vote du village',
     detailLabel: 'Détail du vote',
   );
 
@@ -371,6 +406,9 @@ abstract final class NightActionTypes {
     captainElection,
     captainSuccession,
     villageVote,
+    judgeSecondVote,
+    villageSecondVote,
+    servantSwap,
     villageIdiotSpared,
     hunterShot,
     customNote,

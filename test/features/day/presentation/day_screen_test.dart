@@ -418,4 +418,180 @@ void main() {
 
     await disposeTree(tester);
   });
+
+  group('the Stuttering Judge and the Devoted Servant', () {
+    Future<void> giveRole(String name, String roleId) async {
+      final player = snapshot.players.firstWhere((p) => p.name == name);
+      await games.savePlayers([player.copyWith(roleId: roleId)]);
+    }
+
+    Future<void> voteFor(WidgetTester tester, String name, int count) async {
+      final row = find
+          .ancestor(of: find.text(name), matching: find.byType(Row))
+          .last;
+      for (var i = 0; i < count; i++) {
+        await tester.tap(
+          find.descendant(
+            of: row,
+            matching: find.byIcon(Icons.add_circle_outline),
+          ),
+        );
+        await tester.pump();
+      }
+      await tapVisible(tester, find.text('Valider le vote'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> walkToTheVote(WidgetTester tester) async {
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.text('Passer'));
+        await tester.pumpAndSettle();
+      }
+    }
+
+    testWidgets('the judge can call a second vote, which eliminates again', (
+      tester,
+    ) async {
+      await giveRole('Bob', 'stutteringJudge');
+      await closeNightEating('Alice');
+      await walkToTheVote(tester);
+
+      await voteFor(tester, 'Loup', 3);
+
+      expect(find.text('Le Juge bègue'), findsOneWidget);
+      await tapVisible(tester, find.text('Oui, second vote'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Le second vote'), findsOneWidget);
+      await voteFor(tester, 'Louve', 2);
+
+      // Both eliminations stand, and the recap says so on its first frame.
+      expect(find.text('Fin de la journée'), findsOneWidget);
+      expect(
+        find.textContaining('Loup — Éliminé par le vote du village'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Louve — Éliminé par le second vote du village'),
+        findsOneWidget,
+      );
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('the judge is only asked once in the whole game', (
+      tester,
+    ) async {
+      await giveRole('Bob', 'stutteringJudge');
+      await closeNightEating('Alice');
+      // He already used his signal in an earlier round.
+      await nights.addAction(
+        nightId: night.id,
+        typeId: NightActionTypes.judgeSecondVote.id,
+        phase: ActionPhase.day,
+      );
+      await nights.resolveDay(night.id);
+
+      final second = await nights.startNight(snapshot.game.id);
+      await nights.resolveNight(second.id);
+      await tester.pumpWidget(
+        wrap(
+          DayScreen(
+            gameId: snapshot.game.id,
+            nightId: second.id,
+            onDayResolved: (_) {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.text('Passer'));
+        await tester.pumpAndSettle();
+      }
+
+      await voteFor(tester, 'Loup', 3);
+      expect(find.text('Le Juge bègue'), findsNothing);
+      expect(find.text('Fin de la journée'), findsOneWidget);
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('the servant takes the card of the player voted out', (
+      tester,
+    ) async {
+      await giveRole('Bob', 'servant');
+      await closeNightEating('Alice');
+      await walkToTheVote(tester);
+
+      await voteFor(tester, 'Loup', 3);
+
+      expect(find.text('Servante dévouée'), findsOneWidget);
+      expect(find.textContaining('Loup vient d\'être éliminé'), findsOneWidget);
+      await tapVisible(tester, find.text('Elle se dévoue'));
+      await tester.pumpAndSettle();
+
+      await tapVisible(tester, find.text('Valider la journée'));
+      await tester.pumpAndSettle();
+
+      final after = (await games.loadGame(snapshot.game.id))!;
+      final bob = after.players.firstWhere((p) => p.name == 'Bob');
+      expect(bob.isAlive, isTrue);
+      expect(bob.roleId, 'werewolf', reason: 'she took the wolf\'s card');
+      expect(
+        after.players.firstWhere((p) => p.name == 'Loup').isAlive,
+        isFalse,
+        reason: 'the eliminated player still leaves the game',
+      );
+
+      await disposeTree(tester);
+    });
+
+    testWidgets('the servant drops her couple and her badge on the swap', (
+      tester,
+    ) async {
+      await giveRole('Bob', 'servant');
+      final board = (await games.loadGame(snapshot.game.id))!;
+      final bob = board.players.firstWhere((p) => p.name == 'Bob');
+      final chloe = board.players.firstWhere((p) => p.name == 'Chloé');
+      await games.savePlayers([
+        bob.copyWith(
+          isCaptain: true,
+          isCharmed: true,
+          coupledWithPlayerId: chloe.id,
+        ),
+        chloe.copyWith(coupledWithPlayerId: bob.id),
+      ]);
+      await closeNightEating('Alice');
+
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+      // A captain is already in office, so that card is not offered.
+      for (var i = 0; i < 2; i++) {
+        await tester.tap(find.text('Passer'));
+        await tester.pumpAndSettle();
+      }
+      await voteFor(tester, 'Loup', 3);
+
+      await tapVisible(tester, find.text('Elle se dévoue'));
+      await tester.pumpAndSettle();
+      await tapVisible(tester, find.text('Valider la journée'));
+      await tester.pumpAndSettle();
+
+      final after = (await games.loadGame(snapshot.game.id))!;
+      final servant = after.players.firstWhere((p) => p.name == 'Bob');
+      expect(servant.roleId, 'werewolf');
+      expect(servant.isCaptain, isFalse);
+      expect(servant.isCharmed, isFalse);
+      expect(servant.coupledWithPlayerId, isNull);
+      expect(
+        after.players.firstWhere((p) => p.name == 'Chloé').coupledWithPlayerId,
+        isNull,
+        reason: 'a couple cannot survive on one side only',
+      );
+
+      await disposeTree(tester);
+    });
+  });
 }

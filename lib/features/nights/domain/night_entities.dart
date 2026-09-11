@@ -73,19 +73,29 @@ class PlayerDeath {
 }
 
 class RoleChange {
-  const RoleChange({required this.playerId, required this.newRoleId});
+  const RoleChange({
+    required this.playerId,
+    required this.newRoleId,
+    this.resetStatuses = false,
+  });
 
   final String playerId;
   final String newRoleId;
 
+  /// Whether the player starts their new life from scratch: no lover, no
+  /// captain's badge, no charm. The Devoted Servant takes a card, not a past.
+  final bool resetStatuses;
+
   Map<String, dynamic> toJson() => {
     'playerId': playerId,
     'newRoleId': newRoleId,
+    if (resetStatuses) 'resetStatuses': true,
   };
 
   static RoleChange fromJson(Map<String, dynamic> json) => RoleChange(
     playerId: json['playerId'] as String,
     newRoleId: json['newRoleId'] as String,
+    resetStatuses: json['resetStatuses'] as bool? ?? false,
   );
 }
 

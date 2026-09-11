@@ -17,6 +17,12 @@ enum DayCardKind {
   /// Counting the raised hands.
   vote,
 
+  /// The Stuttering Judge asking for a second vote, once per game.
+  judgeCall,
+
+  /// The Devoted Servant taking the place of the player just voted out.
+  servantSwap,
+
   /// The hunter takes someone with him.
   hunterShot,
 
@@ -32,6 +38,9 @@ class DayCardSpec {
     required this.prompt,
     required this.emoji,
     this.hunterPlayerId,
+    this.servantPlayerId,
+    this.eliminatedPlayerId,
+    this.secondVote = false,
   });
 
   final DayCardKind kind;
@@ -42,7 +51,16 @@ class DayCardSpec {
   /// The hunter about to fire, on a [DayCardKind.hunterShot] card.
   final String? hunterPlayerId;
 
-  String get id => kind.name;
+  /// The Devoted Servant about to reveal herself.
+  final String? servantPlayerId;
+
+  /// Whose card she would take — the player the village just voted out.
+  final String? eliminatedPlayerId;
+
+  /// Whether a [DayCardKind.vote] card is the Judge's second vote.
+  final bool secondVote;
+
+  String get id => secondVote ? '${kind.name}2' : kind.name;
 }
 
 /// Builds the day that follows a night.
@@ -55,6 +73,7 @@ abstract final class DaySequenceBuilder {
     required GameSnapshot snapshot,
     required Night night,
     required List<DayAction> dayActions,
+    Set<String> usedOncePerGameActionIds = const {},
   }) {
     final cards = <DayCardSpec>[
       const DayCardSpec(
@@ -97,6 +116,66 @@ abstract final class DaySequenceBuilder {
           emoji: '🗳️',
         ),
       );
+
+    // The Stuttering Judge may call for a second vote, once in the game. His
+    // card stays on the deck once answered so the narrator can go back to it.
+    final judgeCalled = dayActions.any(
+      (action) => action.typeId == NightActionTypes.judgeSecondVote.id,
+    );
+    final judge = _livingHolderOf(snapshot, Roles.stutteringJudge.id);
+    final judgeAvailable =
+        judge != null &&
+        !usedOncePerGameActionIds.contains(
+          NightActionTypes.judgeSecondVote.id,
+        );
+    if (judgeAvailable || judgeCalled) {
+      cards.add(
+        const DayCardSpec(
+          kind: DayCardKind.judgeCall,
+          title: 'Le Juge bègue',
+          prompt: 'Réclame-t-il un second vote, ici et maintenant ?',
+          emoji: '⚖️',
+        ),
+      );
+    }
+    if (judgeCalled) {
+      cards.add(
+        const DayCardSpec(
+          kind: DayCardKind.vote,
+          title: 'Le second vote',
+          prompt: 'Le village vote une seconde fois. Recomptez les mains.',
+          emoji: '🗳️',
+          secondVote: true,
+        ),
+      );
+    }
+
+    // The Devoted Servant steps in before the eliminated player turns their
+    // card over — so only once the village has actually voted somebody out.
+    final servant = _livingHolderOf(snapshot, Roles.servant.id);
+    final eliminatedId = _votedOutId(dayActions);
+    final servantSwapped = dayActions.any(
+      (action) => action.typeId == NightActionTypes.servantSwap.id,
+    );
+    final servantAvailable =
+        servant != null &&
+        eliminatedId != null &&
+        servant.id != eliminatedId &&
+        !usedOncePerGameActionIds.contains(NightActionTypes.servantSwap.id);
+    if (servantAvailable || servantSwapped) {
+      cards.add(
+        DayCardSpec(
+          kind: DayCardKind.servantSwap,
+          title: Roles.servant.label,
+          prompt:
+              'Avant que la carte ne soit retournée, la Servante peut prendre '
+              'la place de l\'éliminé.',
+          emoji: Roles.servant.emoji,
+          servantPlayerId: servant?.id,
+          eliminatedPlayerId: eliminatedId,
+        ),
+      );
+    }
 
     final hunterId = _hunterToFire(
       snapshot: snapshot,
@@ -145,13 +224,28 @@ abstract final class DaySequenceBuilder {
       if (fellTonight) return player.id;
     }
 
-    final votedOutId = dayActions
-        .where((action) => action.typeId == NightActionTypes.villageVote.id)
-        .map((action) => action.targetPlayerId)
-        .firstOrNull;
-    final votedOut = snapshot.playerById(votedOutId);
+    final votedOut = snapshot.playerById(_votedOutId(dayActions));
     if (votedOut != null && votedOut.roleId == Roles.hunter.id) {
       return votedOut.id;
+    }
+    return null;
+  }
+
+  /// Who the village voted out today — the second vote has the final word.
+  static String? _votedOutId(List<DayAction> dayActions) {
+    String? id;
+    for (final action in dayActions) {
+      if (action.typeId == NightActionTypes.villageVote.id ||
+          action.typeId == NightActionTypes.villageSecondVote.id) {
+        id = action.targetPlayerId ?? id;
+      }
+    }
+    return id;
+  }
+
+  static Player? _livingHolderOf(GameSnapshot snapshot, String roleId) {
+    for (final player in snapshot.alivePlayers) {
+      if (player.roleId == roleId) return player;
     }
     return null;
   }

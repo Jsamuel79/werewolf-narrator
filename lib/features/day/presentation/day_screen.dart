@@ -101,6 +101,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
       snapshot: nightContext.snapshot,
       night: night,
       dayActions: DayAction.from(nightContext.dayActions),
+      usedOncePerGameActionIds: nightContext.usedOncePerGameActionIds,
     );
     final index = _index.clamp(0, cards.length - 1);
 
@@ -139,13 +140,22 @@ class _DayScreenState extends ConsumerState<DayScreen> {
           onNext: () => _goTo(index + 1, cards.length),
           onPrevious: () => _goTo(index - 1, cards.length),
           itemBuilder: (context, i) => _DayCard(
+            // Without a key, Flutter would reuse one card's State for the
+            // next: the captain's pick would preselect the hunter's target,
+            // and the Judge's second vote would open on the first count.
+            key: ValueKey('${night.id}-${cards[i].id}'),
             spec: cards[i],
             nightContext: nightContext,
             onCaptain: (playerId, bySuccession) =>
                 _electCaptain(nightContext, playerId, bySuccession, cards.length),
-            onVote: (entry) => _recordVote(nightContext, entry, cards.length),
+            onVote: (spec, entry) =>
+                _recordVote(nightContext, spec, entry, cards.length),
             onHunterShot: (spec, targetId) =>
                 _recordHunterShot(nightContext, spec, targetId, cards.length),
+            onJudgeCall: () => _recordJudgeCall(nightContext, cards.length),
+            onServantSwap: (spec) =>
+                _recordServantSwap(nightContext, spec, cards.length),
+            onSkip: () => _next(cards.length),
             onResolve: () => _resolve(nightContext),
           ),
         ),
@@ -241,17 +251,21 @@ class _DayScreenState extends ConsumerState<DayScreen> {
 
   Future<void> _recordVote(
     NightContext nightContext,
+    DayCardSpec spec,
     VoteEntry entry,
     int cardCount,
   ) async {
     final result = entry.result;
     final snapshot = nightContext.snapshot;
     final detail = _voteDetail(entry, snapshot);
+    final voteTypeId = spec.secondVote
+        ? NightActionTypes.villageSecondVote.id
+        : NightActionTypes.villageVote.id;
 
     final ok = await runGuarded(context, () async {
       // Answering again replaces the previous count.
       for (final typeId in [
-        NightActionTypes.villageVote.id,
+        voteTypeId,
         NightActionTypes.villageIdiotSpared.id,
         NightActionTypes.customNote.id,
       ]) {
@@ -263,7 +277,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
 
       if (result.eliminatesSomeone) {
         await _add(
-          typeId: NightActionTypes.villageVote.id,
+          typeId: voteTypeId,
           targetPlayerId: result.eliminatedPlayerId,
           details: {'text': detail},
         );
@@ -294,6 +308,53 @@ class _DayScreenState extends ConsumerState<DayScreen> {
       if (captain != null) 'Capitaine → ${captain.name}',
       entry.result.label,
     ].join(' · ');
+  }
+
+  Future<void> _recordJudgeCall(
+    NightContext nightContext,
+    int cardCount,
+  ) async {
+    final ok = await runGuarded(
+      context,
+      () => _add(
+        typeId: NightActionTypes.judgeSecondVote.id,
+        actorPlayerId: nightContext.snapshot.alivePlayers
+            .where((p) => p.roleId == Roles.stutteringJudge.id)
+            .map((p) => p.id)
+            .firstOrNull,
+        details: const {'text': 'Un second vote est réclamé'},
+      ),
+    );
+    if (!ok || !mounted) return;
+    _next(cardCount);
+  }
+
+  Future<void> _recordServantSwap(
+    NightContext nightContext,
+    DayCardSpec spec,
+    int cardCount,
+  ) async {
+    final eliminated = nightContext.snapshot.playerById(
+      spec.eliminatedPlayerId,
+    );
+    if (eliminated == null) return;
+
+    final ok = await runGuarded(
+      context,
+      () => _add(
+        typeId: NightActionTypes.servantSwap.id,
+        actorPlayerId: spec.servantPlayerId,
+        targetPlayerId: eliminated.id,
+        details: {
+          'newRoleId': eliminated.roleId,
+          // She takes a card, not a past: lover, badge and charm are dropped.
+          'resetStatuses': true,
+          'text': eliminated.role.label,
+        },
+      ),
+    );
+    if (!ok || !mounted) return;
+    _next(cardCount);
   }
 
   Future<void> _recordHunterShot(
@@ -354,18 +415,25 @@ class _DayScreenState extends ConsumerState<DayScreen> {
 class _DayCard extends StatefulWidget {
   const _DayCard({
     required this.spec,
+    super.key,
     required this.nightContext,
     required this.onCaptain,
     required this.onVote,
     required this.onHunterShot,
+    required this.onJudgeCall,
+    required this.onServantSwap,
+    required this.onSkip,
     required this.onResolve,
   });
 
   final DayCardSpec spec;
   final NightContext nightContext;
   final void Function(String playerId, bool bySuccession) onCaptain;
-  final ValueChanged<VoteEntry> onVote;
+  final void Function(DayCardSpec spec, VoteEntry entry) onVote;
   final void Function(DayCardSpec spec, String targetId) onHunterShot;
+  final VoidCallback onJudgeCall;
+  final ValueChanged<DayCardSpec> onServantSwap;
+  final VoidCallback onSkip;
   final VoidCallback onResolve;
 
   @override
@@ -425,8 +493,10 @@ class _DayCardState extends State<_DayCard> {
       villageIdiotAlreadySpared: widget.nightContext
           .usedOncePerGameActionIds
           .contains(NightActionTypes.villageIdiotSpared.id),
-      onSubmit: widget.onVote,
+      onSubmit: (entry) => widget.onVote(widget.spec, entry),
     ),
+    DayCardKind.judgeCall => _judgeCall(context),
+    DayCardKind.servantSwap => _servantSwap(context),
     DayCardKind.hunterShot => _hunterShot(context),
     DayCardKind.summary => _summary(context),
   };
@@ -480,6 +550,91 @@ class _DayCardState extends State<_DayCard> {
           icon: const Icon(Icons.star),
           label: const Text('Nommer Capitaine'),
         ),
+      ],
+    );
+  }
+
+  Widget _judgeCall(BuildContext context) {
+    final theme = Theme.of(context);
+    final called = widget.nightContext.actionOf(
+      NightActionTypes.judgeSecondVote.id,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Une seule fois dans la partie, le Juge bègue peut faire son signe '
+          'convenu et déclencher un second vote immédiatement après le '
+          'premier, dans la même journée.',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: 20),
+        if (called != null)
+          Text(
+            '⚖️ Le second vote a été réclamé.',
+            style: theme.textTheme.titleSmall,
+          )
+        else ...[
+          FilledButton.icon(
+            onPressed: widget.onJudgeCall,
+            icon: const Icon(Icons.gavel),
+            label: const Text('Oui, second vote'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: widget.onSkip,
+            icon: const Icon(Icons.skip_next),
+            label: const Text('Non, la journée s\'arrête là'),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _servantSwap(BuildContext context) {
+    final theme = Theme.of(context);
+    final servant = _snapshot.playerById(widget.spec.servantPlayerId);
+    final eliminated = _snapshot.playerById(widget.spec.eliminatedPlayerId);
+    final done = widget.nightContext.actionOf(
+      NightActionTypes.servantSwap.id,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (eliminated != null)
+          Text(
+            '${eliminated.name} vient d\'être éliminé. '
+            '${servant?.name ?? 'La Servante'} peut se dévoiler et reprendre '
+            'sa carte (${eliminated.role.label}) sans la montrer au village.',
+            style: theme.textTheme.bodyMedium,
+          ),
+        const SizedBox(height: 12),
+        Text(
+          'Elle perd alors tous ses statuts : amoureux, écharpe de Capitaine, '
+          'charme du Joueur de Flûte.',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: 20),
+        if (done != null)
+          Text(
+            '🙇 La Servante a repris la carte.',
+            style: theme.textTheme.titleSmall,
+          )
+        else ...[
+          FilledButton.icon(
+            onPressed: () => widget.onServantSwap(widget.spec),
+            icon: const Icon(Icons.swap_horiz),
+            label: const Text('Elle se dévoue'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: widget.onSkip,
+            icon: const Icon(Icons.skip_next),
+            label: const Text('Elle reste cachée'),
+          ),
+        ],
       ],
     );
   }
