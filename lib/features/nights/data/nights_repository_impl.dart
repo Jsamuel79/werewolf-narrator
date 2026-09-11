@@ -217,7 +217,9 @@ class DriftNightsRepository implements NightsRepository {
     if (type.requiresTarget && targetPlayerId == null) {
       throw const ValidationException('Cette action demande une cible.');
     }
-    if (type.requiresSecondaryTarget && secondaryTargetPlayerId == null) {
+    if (type.requiresSecondaryTarget &&
+        !type.secondaryTargetOptional &&
+        secondaryTargetPlayerId == null) {
       throw const ValidationException(
         'Cette action demande une seconde cible.',
       );

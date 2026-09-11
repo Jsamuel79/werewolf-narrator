@@ -4,13 +4,19 @@ import 'package:werewolf_narrator/features/games/domain/role.dart';
 import 'package:werewolf_narrator/features/nights/domain/night_action_type.dart';
 import 'package:werewolf_narrator/features/nights/domain/night_sequence.dart';
 
-Player player(String id, String roleId, {bool alive = true}) => Player(
+Player player(
+  String id,
+  String roleId, {
+  bool alive = true,
+  bool charmed = false,
+}) => Player(
   id: id,
   gameId: 'g',
   name: id,
   roleId: roleId,
   seatOrder: 0,
   isAlive: alive,
+  isCharmed: charmed,
 );
 
 GameSnapshot snapshotOf(List<Player> players) => GameSnapshot(
@@ -195,6 +201,84 @@ void main() {
       expect(names, containsAll(['dan', 'eve']));
       expect(names, isNot(contains('wolf')));
       expect(names, isNot(contains('white')));
+    });
+
+    group('the Piper never charms the same player twice', () {
+      NightCardSpec piperCardOf(GameSnapshot snapshot, {int nightNumber = 2}) =>
+          NightSequenceBuilder.build(
+            snapshot: snapshot,
+            nightNumber: nightNumber,
+            usedOncePerGameActionIds: const {},
+          ).firstWhere((c) => c.id == NightActionTypes.piperCharm.id);
+
+      test('drops the players charmed on an earlier night', () {
+        final snapshot = snapshotOf([
+          player('piper', Roles.piper.id),
+          player('dan', Roles.villager.id, charmed: true),
+          player('eve', Roles.seer.id, charmed: true),
+          player('flo', Roles.villager.id),
+          player('wolf', Roles.werewolf.id),
+        ]);
+
+        final ids = NightSequenceBuilder.candidates(
+          spec: piperCardOf(snapshot),
+          snapshot: snapshot,
+        ).map((p) => p.id);
+
+        expect(ids, ['flo', 'wolf']);
+        expect(ids, isNot(contains('dan')));
+        expect(ids, isNot(contains('eve')));
+      });
+
+      test('never offers the Piper his own tune', () {
+        final snapshot = snapshotOf([
+          player('piper', Roles.piper.id),
+          player('dan', Roles.villager.id),
+        ]);
+
+        expect(
+          NightSequenceBuilder.candidates(
+            spec: piperCardOf(snapshot),
+            snapshot: snapshot,
+          ).map((p) => p.id),
+          ['dan'],
+        );
+      });
+
+      test('says on the card why a name is missing', () {
+        final snapshot = snapshotOf([
+          player('piper', Roles.piper.id),
+          player('dan', Roles.villager.id, charmed: true),
+          player('eve', Roles.villager.id),
+        ]);
+
+        expect(piperCardOf(snapshot).hint, contains('déjà charmé'));
+      });
+
+      test('keeps a quiet card when nobody is charmed yet', () {
+        final snapshot = snapshotOf([
+          player('piper', Roles.piper.id),
+          player('dan', Roles.villager.id),
+        ]);
+
+        expect(piperCardOf(snapshot, nightNumber: 1).hint, isNull);
+      });
+
+      test('a charmed player who died changes nothing', () {
+        final snapshot = snapshotOf([
+          player('piper', Roles.piper.id),
+          player('dan', Roles.villager.id, charmed: true, alive: false),
+          player('eve', Roles.villager.id),
+        ]);
+
+        expect(
+          NightSequenceBuilder.candidates(
+            spec: piperCardOf(snapshot),
+            snapshot: snapshot,
+          ).map((p) => p.id),
+          ['eve'],
+        );
+      });
     });
 
     test('the seer does not look at herself', () {

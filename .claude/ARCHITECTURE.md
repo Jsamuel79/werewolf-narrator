@@ -400,7 +400,7 @@ impaires (il ne dévore qu'une nuit sur deux).
 | `NightCardKind` | Interface | Rôles |
 |-----------------|-----------|-------|
 | `singleTarget` | une liste de joueurs, un seul choix | Loups, Grand Méchant Loup, Loup Blanc, Infect Père, Salvateur, Enfant sauvage |
-| `dualTarget` | deux joueurs distincts | Cupidon, Joueur de Flûte |
+| `dualTarget` | deux joueurs distincts (le second facultatif pour le Flûtiste) | Cupidon, Joueur de Flûte |
 | `reveal` | un joueur, puis le rôle est révélé **au narrateur** dans une boîte de dialogue, et enregistré dans l'historique | Voyante |
 | `targetWithNote` | un joueur + une note libre | Renard, Corbeau |
 | `confirm` | question fermée (« c'est fait » / « rien cette nuit ») | Deux Sœurs, Trois Frères, Petite Fille, Voleur (+ choix de la carte volée) |
@@ -410,6 +410,13 @@ impaires (il ne dévore qu'une nuit sur deux).
 Les cibles proposées dépendent du `NightTargetScope` de la carte : la meute ne peut pas
 se dévorer elle-même, la Voyante ne se regarde pas, le Loup Blanc ne mange que des loups,
 et le Salvateur ne peut pas reprotéger le joueur de la nuit précédente.
+
+**Joueur de Flûte** *(v2.2)* : sa carte ne propose que des joueurs **vivants, non encore
+charmés, et différents de lui**. Le charme ne se retire jamais — reproposer un nom déjà
+charmé laissait croire au narrateur que le sort s'était dissipé et lui faisait gâcher une
+nuit. Les noms retirés sont expliqués par une ligne sous la question. Corollaire : la
+dernière nuit utile peut n'offrir qu'un seul nom, donc sa seconde cible est **facultative**
+(cf. D43).
 
 **Sorcière** : la potion de vie ne peut ressusciter que la victime désignée par les loups
 **cette nuit** (bouton grisé tant que la meute n'a pas choisi) ; la potion de mort ouvre
@@ -726,6 +733,7 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D29** | « Rejouer » **crée une nouvelle partie** au lieu de réinitialiser l'ancienne | Une partie terminée est une archive : l'historique, les bilans et les rôles révélés doivent rester consultables. Réinitialiser les lignes existantes les détruirait. |
 | **D40** | La mort du Joueur de Flûte **n'est pas** une condition de victoire du Village | Règle officielle : le Village gagne par élimination de tous les Loups-Garous, point. Le moteur ne contenait aucune logique en ce sens, mais rien ne le disait non plus : un test de non-régression et cette ligne verrouillent le comportement, parce que l'intuition de table est exactement l'inverse. Le Joueur de Flûte n'est pas non plus crédité d'une victoire du Village : il joue seul et perd seul. |
 | **D41** | Un Joueur de Flûte amoureux gagne **avec** son amoureux vivant | Deux règles officielles se rencontrent : « les Amoureux gagnent ensemble » et « le Joueur de Flûte gagne seul ». Les faire s'exclure obligerait à trancher au détriment de Cupidon ; les faire cohabiter ne coûte qu'un identifiant de plus dans `winnerPlayerIds`, et c'est la lecture que retiennent les tables. Le camp affiché reste celui du Joueur de Flûte — c'est sa condition qui a clos la partie. |
+| **D43** | Le charme peut ne viser **qu'un seul joueur** : `secondaryTargetOptional` sur l'action | La règle dit « 1 ou 2 joueurs », mais le catalogue exigeait deux cibles. Une fois les déjà-charmés retirés de la liste, la dernière nuit n'en propose souvent plus qu'un : la carte devenait impossible à valider et la victoire du Flûtiste inatteignable. Le drapeau est porté par l'action, pas par un `if` sur son identifiant, donc Cupidon continue d'exiger ses deux amoureux. |
 | **D42** | Un Joueur de Flûte **infecté** perd sa condition de victoire et gagne avec la meute | L'infection réécrit `roleId` (règle déjà en place depuis la v1) : la règle `piper` cherche un survivant dont le rôle est `piper` et ne le trouve plus. C'est cohérent avec l'Infect Père des Loups, dont le pouvoir est précisément de faire changer de camp, et cela évite un statut « ancien rôle » que rien d'autre n'utiliserait. |
 
 ---

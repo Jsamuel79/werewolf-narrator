@@ -53,6 +53,7 @@ class NightActionType {
     this.phase = ActionPhase.night,
     this.requiresTarget = true,
     this.requiresSecondaryTarget = false,
+    this.secondaryTargetOptional = false,
     this.firstNightOnly = false,
     this.oncePerGame = false,
     this.protectable = false,
@@ -74,6 +75,12 @@ class NightActionType {
   final ActionPhase phase;
   final bool requiresTarget;
   final bool requiresSecondaryTarget;
+
+  /// The card still asks for a second target, but accepts an answer without
+  /// one. The Piper charms « one or two » players: on the night where a single
+  /// uncharmed player is left, demanding a second name would make his card
+  /// impossible to validate — and his victory unreachable.
+  final bool secondaryTargetOptional;
   final bool firstNightOnly;
 
   /// Offered only if it has not already been used earlier in the game.
@@ -230,7 +237,8 @@ abstract final class NightActionTypes {
     effect: ActionEffect.charm,
     roleId: 'piper',
     requiresSecondaryTarget: true,
-    secondaryTargetLabel: 'Second joueur charmé',
+    secondaryTargetOptional: true,
+    secondaryTargetLabel: 'Second joueur charmé (facultatif)',
   );
 
   static const NightActionType ravenCurse = NightActionType(

@@ -185,9 +185,7 @@ class _NightCardViewState extends State<NightCardView> {
               ),
             ),
             const SizedBox(height: 16),
-            Expanded(
-              child: SingleChildScrollView(child: _body(context)),
-            ),
+            Expanded(child: SingleChildScrollView(child: _body(context))),
           ],
         ),
       ),
@@ -271,6 +269,10 @@ class _NightCardViewState extends State<NightCardView> {
     final theme = Theme.of(context);
     final secondaryLabel =
         widget.spec.type?.secondaryTargetLabel ?? 'Second joueur';
+    // The Piper may charm a single player when only one name is left; Cupid
+    // always needs his two.
+    final secondaryOptional =
+        widget.spec.type?.secondaryTargetOptional ?? false;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -297,7 +299,8 @@ class _NightCardViewState extends State<NightCardView> {
         ),
         const SizedBox(height: 20),
         FilledButton.icon(
-          onPressed: _targetId == null || _secondaryId == null
+          onPressed:
+              _targetId == null || (_secondaryId == null && !secondaryOptional)
               ? null
               : () => _submit(),
           icon: const Icon(Icons.check),

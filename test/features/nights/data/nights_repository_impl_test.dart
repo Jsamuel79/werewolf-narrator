@@ -7,6 +7,7 @@ import 'package:werewolf_narrator/features/games/domain/game_entities.dart';
 import 'package:werewolf_narrator/features/games/domain/games_repository.dart';
 import 'package:werewolf_narrator/features/nights/data/nights_repository_impl.dart';
 import 'package:werewolf_narrator/features/nights/domain/night_action_type.dart';
+import 'package:werewolf_narrator/features/nights/domain/night_sequence.dart';
 
 void main() {
   late AppDatabase db;
@@ -353,6 +354,91 @@ void main() {
       await pumpEventQueue();
 
       expect(resolved, [false, true]);
+    });
+  });
+
+  group('a charm lasts the whole game', () {
+    late Game piperGame;
+    late GameSnapshot board;
+
+    String idOf(String name) =>
+        board.players.firstWhere((p) => p.name == name).id;
+
+    List<String> piperTargets() {
+      final card = NightSequenceBuilder.build(
+        snapshot: board,
+        nightNumber: 2,
+        usedOncePerGameActionIds: const {},
+      ).firstWhere((c) => c.id == NightActionTypes.piperCharm.id);
+      return NightSequenceBuilder.candidates(spec: card, snapshot: board)
+          .map((p) => p.name)
+          .toList();
+    }
+
+    setUp(() async {
+      piperGame = await games.createGame(
+        name: 'Partie au flûtiste',
+        players: const [
+          PlayerDraft(name: 'Flûtiste', roleId: 'piper'),
+          PlayerDraft(name: 'Bob', roleId: 'werewolf'),
+          PlayerDraft(name: 'Chloé', roleId: 'villager'),
+          PlayerDraft(name: 'David', roleId: 'villager'),
+          PlayerDraft(name: 'Emma', roleId: 'seer'),
+        ],
+      );
+      board = (await games.loadGame(piperGame.id))!;
+    });
+
+    test('two players charmed on night 1 are gone from the night 2 card',
+        () async {
+      final first = await nights.startNight(piperGame.id);
+      await nights.addAction(
+        nightId: first.id,
+        typeId: NightActionTypes.piperCharm.id,
+        actorPlayerId: idOf('Flûtiste'),
+        targetPlayerId: idOf('Chloé'),
+        secondaryTargetPlayerId: idOf('David'),
+      );
+      await nights.resolveNight(first.id);
+      await nights.resolveDay(first.id);
+
+      board = (await games.loadGame(piperGame.id))!;
+      final second = await nights.startNight(piperGame.id);
+      expect(second.nightNumber, 2);
+
+      expect(piperTargets(), ['Bob', 'Emma']);
+    });
+
+    test('the charm is cumulative across nights, never reset', () async {
+      final first = await nights.startNight(piperGame.id);
+      await nights.addAction(
+        nightId: first.id,
+        typeId: NightActionTypes.piperCharm.id,
+        actorPlayerId: idOf('Flûtiste'),
+        targetPlayerId: idOf('Chloé'),
+        secondaryTargetPlayerId: idOf('David'),
+      );
+      await nights.resolveNight(first.id);
+      await nights.resolveDay(first.id);
+      board = (await games.loadGame(piperGame.id))!;
+
+      final second = await nights.startNight(piperGame.id);
+      await nights.addAction(
+        nightId: second.id,
+        typeId: NightActionTypes.piperCharm.id,
+        actorPlayerId: idOf('Flûtiste'),
+        targetPlayerId: idOf('Emma'),
+      );
+      await nights.resolveNight(second.id);
+      board = (await games.loadGame(piperGame.id))!;
+
+      final charmed = board.players
+          .where((p) => p.isCharmed)
+          .map((p) => p.name)
+          .toSet();
+      expect(charmed, {'Chloé', 'David', 'Emma'});
+      // Only the wolf is left to charm; nobody has to be charmed twice.
+      expect(piperTargets(), ['Bob']);
     });
   });
 }

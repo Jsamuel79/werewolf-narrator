@@ -229,11 +229,24 @@ abstract final class NightSequenceBuilder {
               'joueur.';
         }
       case 'cupidCouple':
+        kind = NightCardKind.dualTarget;
+        scope = NightTargetScope.alive;
       case 'piperCharm':
         kind = NightCardKind.dualTarget;
-        scope = type.id == 'cupidCouple'
-            ? NightTargetScope.alive
-            : NightTargetScope.aliveOthers;
+        scope = NightTargetScope.aliveOthers;
+        // A charm is never lifted, so re-charming somebody would be a wasted
+        // night — and the narrator, seeing the name offered again, could think
+        // the spell had worn off. Already-charmed players simply leave the
+        // list.
+        excluded = {
+          for (final player in snapshot.players)
+            if (player.isCharmed) player.id,
+        };
+        if (excluded.isNotEmpty) {
+          hint =
+              'Les joueurs déjà charmés ne sont plus proposés : le charme '
+              'reste jusqu\'à la fin de la partie.';
+        }
       case 'foxSniff':
       case 'ravenCurse':
         kind = NightCardKind.targetWithNote;
