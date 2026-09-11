@@ -193,7 +193,7 @@ garde les promesses de sécurité (pas de permission réseau, pas de socket).
 
 ### `nights`
 Un enregistrement `nights` représente **un tour complet** : la phase de nuit *et* le
-vote du village qui la suit. Choix documenté en §14 (décision D2).
+vote du village qui la suit. Choix documenté en §15 (décision D2).
 
 | Colonne | Type | Notes |
 |---------|------|-------|
@@ -577,7 +577,30 @@ est un point de départ, pas un moule.
 
 ---
 
-## 13. Flux de données
+## 13. Rappels des pouvoirs passifs *(v2.1)*
+
+Certains rôles du catalogue n'ont **rien à saisir** : personne ne se réveille, aucune
+action n'est enregistrée, mais le narrateur doit s'en souvenir au bon moment.
+`PassiveReminders` (dans `games/domain`, pur et sans état) associe ces règles aux cartes
+qui posent la question :
+
+| Carte | Rappel | Rôle |
+|-------|--------|------|
+| 🐺 Loups-Garous | « L'Ancien survit à la première attaque des loups » | Ancien |
+| 🐺 Loups-Garous | « Si le Chevalier est dévoré, le premier loup à sa gauche meurt la nuit suivante » | Chevalier |
+| 🌤️ Réveil | « L'ours grogne si un voisin direct du Montreur d'ours est un loup » | Montreur d'ours |
+| 🌤️ Réveil | « La Servante pourra reprendre la carte de l'éliminé » | Servante dévouée |
+| 🗳️ Vote (et second vote) | « L'Idiot du Village est démasqué mais survit — **l'application s'en charge** » | Idiot du Village |
+| 🗳️ Vote | « En cas d'égalité, le Bouc émissaire est éliminé — **l'application s'en charge** » | Bouc émissaire |
+| 🗳️ Vote | « Si le village élimine l'Ancien, tous les villageois perdent leur pouvoir » | Ancien |
+
+Un rappel n'apparaît que si le rôle est **vivant** à cette table. Les règles que le moteur
+applique déjà sont formulées comme des confirmations (« l'application s'en charge »), pour
+que le narrateur ne les applique pas une seconde fois à la main.
+
+---
+
+## 14. Flux de données
 
 ```
 Widget ──watch──► StreamProvider/AsyncNotifier (Riverpod)
@@ -604,7 +627,7 @@ WidgetsFlutterBinding.ensureInitialized()
 
 ---
 
-## 14. Décisions d'architecture
+## 15. Décisions d'architecture
 
 | # | Décision | Raison |
 |---|----------|--------|
@@ -636,6 +659,7 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D26** | Le Salvateur ne peut pas protéger le même joueur deux nuits de suite | La règle officielle existe, le catalogue la décrit déjà, et l'information nécessaire (la protection de la nuit précédente) est une requête d'une ligne. La contrainte est appliquée par filtrage des cibles, avec la raison affichée sur la carte. |
 | **D27** | La journée est une **phase résolue séparément**, pas des actions glissées dans la nuit | Le réveil doit annoncer des morts déjà appliqués au plateau, et le vote doit se compter sur les vivants du matin. Un `DayResolver` séparé aurait dupliqué `NightResolver` : les conséquences (protections, chagrin, capitaine, changements de rôle) sont les mêmes. Le même moteur est donc appelé deux fois, filtré par `phase` — une seule description des règles, deux moments d'application. |
 | **D28** | Le chronomètre et le retour sonore n'utilisent **aucun paquet** | `Timer.periodic`, `HapticFeedback.vibrate()` et `SystemSound.play()` viennent du SDK. Aucun paquet audio, donc aucune permission ajoutée au manifeste et la garantie « zéro réseau » reste vraie sans nouvel audit. |
+| **D35** | Les rappels de pouvoirs passifs sont des **textes contextuels**, pas des règles automatisées | L'Ancien qui encaisse la première attaque et le Chevalier qui contamine son voisin dépendent de l'ordre des sièges et de l'historique des attaques — des informations que l'app ne modélise pas. Les automatiser à moitié serait pire que de ne pas les automatiser : le narrateur ne saurait plus ce qui est appliqué. Les rappels sont donc stateless, et ceux qui portent sur une règle réellement appliquée le disent explicitement. |
 | **D31** | Le **Juge bègue** déclenche un **second vote complet**, et les deux éliminations comptent | Règle officielle (extension *Personnages*) : « il peut décider qu'un second vote aura lieu immédiatement après le premier, dans la même journée ». Le second vote est une carte de vote identique, enregistrée sous `villageSecondVote` pour que l'historique distingue les deux, et c'est **lui** qui désigne le joueur dont la Servante peut reprendre la carte. |
 | **D32** | La **Servante dévouée** ne reprend que la carte d'un joueur **éliminé par le vote du village**, pas d'une victime de la nuit | C'est la formulation du livret : « juste avant que le joueur éliminé par le village ne dévoile sa carte ». Certaines variantes de table l'étendent aux victimes des loups ; l'app suit la règle imprimée, et le narrateur qui joue la variante peut toujours changer le rôle à la main depuis l'écran de partie. |
 | **D33** | En se dévouant, la Servante **perd tous ses statuts** (couple, écharpe, charme) | Règle officielle : elle prend une carte, pas un passé. Implémenté par un drapeau `resetStatuses` sur `RoleChange`, donc le Voleur et l'Infect Père des Loups, qui changent aussi de rôle, gardent leurs statuts. Le partenaire d'un couple rompu est libéré lui aussi : un couple à un seul membre n'existe pas. |
@@ -645,7 +669,7 @@ WidgetsFlutterBinding.ensureInitialized()
 
 ---
 
-## 15. Sécurité
+## 16. Sécurité
 
 - 🔒 **DB chiffrée** SQLCipher AES-256 ; le fichier `.db` est illisible hors de l'app.
 - 🔑 **Clé** : 32 octets de `Random.secure()`, générés au premier lancement, stockés
@@ -659,7 +683,7 @@ WidgetsFlutterBinding.ensureInitialized()
 
 ---
 
-## 16. Roadmap
+## 17. Roadmap
 
 - [x] **E0 — Setup** : SDK Flutter, scaffold du projet, dépendances, lints
 - [x] **E1 — Noyau sécurité & DB** : `KeyStore`, ouverture SQLCipher, tables Drift

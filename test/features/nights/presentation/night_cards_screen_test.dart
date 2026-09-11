@@ -369,4 +369,39 @@ void main() {
       await disposeTree(tester);
     });
   });
+
+  testWidgets('the pack card recalls the passive powers in play', (
+    tester,
+  ) async {
+    final david = snapshot.players.firstWhere((p) => p.name == 'David');
+    await games.savePlayers([david.copyWith(roleId: 'ancient')]);
+
+    await tester.pumpWidget(screen());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Passer'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('L\'Ancien survit à la première attaque'),
+      findsOneWidget,
+    );
+
+    await disposeTree(tester);
+  });
+
+  testWidgets('a table without passive powers gets no reminder at all', (
+    tester,
+  ) async {
+    // The seeded table is a seer, a witch, two villagers and a wolf: nothing
+    // passive to remember.
+    await tester.pumpWidget(screen());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Passer'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('L\'Ancien'), findsNothing);
+    expect(find.textContaining('Chevalier'), findsNothing);
+
+    await disposeTree(tester);
+  });
 }

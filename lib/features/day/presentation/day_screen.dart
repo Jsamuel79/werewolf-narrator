@@ -5,8 +5,10 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/ui_feedback.dart';
 import '../../../core/widgets/swipe_card_stack.dart';
 import '../../games/domain/game_entities.dart';
+import '../../games/domain/passive_reminders.dart';
 import '../../games/domain/role.dart';
 import '../../games/presentation/controllers/games_providers.dart';
+import '../../games/presentation/widgets/passive_reminder_band.dart';
 import '../../nights/data/nights_repository_impl.dart';
 import '../../nights/domain/night_action_type.dart';
 import '../../nights/presentation/controllers/nights_providers.dart';
@@ -476,6 +478,12 @@ class _DayCardState extends State<_DayCard> {
             ),
             const SizedBox(height: 12),
             Text(spec.prompt, style: theme.textTheme.bodyLarge),
+            PassiveReminderBand(
+              reminders: PassiveReminders.forDayCard(
+                cardId: spec.id,
+                snapshot: _snapshot,
+              ),
+            ),
             const SizedBox(height: 16),
             Expanded(child: SingleChildScrollView(child: _body(context))),
           ],

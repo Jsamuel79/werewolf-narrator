@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../games/domain/game_entities.dart';
+import '../../../games/domain/passive_reminders.dart';
 import '../../../games/domain/role.dart';
+import '../../../games/presentation/widgets/passive_reminder_band.dart';
 import '../../../games/presentation/widgets/role_picker_sheet.dart';
 import '../../domain/night_action_type.dart';
 import '../../domain/night_entities.dart';
@@ -176,6 +178,12 @@ class _NightCardViewState extends State<NightCardView> {
                   ),
                 ),
               ),
+            PassiveReminderBand(
+              reminders: PassiveReminders.forNightCard(
+                cardId: spec.id,
+                snapshot: widget.snapshot,
+              ),
+            ),
             const SizedBox(height: 16),
             Expanded(
               child: SingleChildScrollView(child: _body(context)),

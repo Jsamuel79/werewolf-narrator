@@ -594,4 +594,27 @@ void main() {
       await disposeTree(tester);
     });
   });
+
+  testWidgets('the vote card recalls what the vote does differently', (
+    tester,
+  ) async {
+    final chloe = snapshot.players.firstWhere((p) => p.name == 'Chloé');
+    await games.savePlayers([chloe.copyWith(roleId: 'scapegoat')]);
+    await closeNightEating('Alice');
+
+    await tester.pumpWidget(screen());
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.text('Passer'));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('Le vote du village'), findsOneWidget);
+    expect(
+      find.textContaining('c\'est le Bouc émissaire qui est éliminé'),
+      findsOneWidget,
+    );
+
+    await disposeTree(tester);
+  });
 }
