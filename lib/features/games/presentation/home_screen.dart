@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/ui_feedback.dart';
+import '../../export/presentation/backups_screen.dart';
 import '../../export/presentation/export_actions.dart';
 import '../domain/game_entities.dart';
 import 'controllers/games_providers.dart';
@@ -29,6 +30,13 @@ class HomeScreen extends ConsumerWidget {
               icon: const Icon(Icons.file_open_outlined),
               tooltip: 'Importer une partie',
               onPressed: () => _import(context, ref),
+            ),
+            IconButton(
+              icon: const Icon(Icons.restore),
+              tooltip: 'Instantanés de secours',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const BackupsScreen()),
+              ),
             ),
           ],
           bottom: const TabBar(

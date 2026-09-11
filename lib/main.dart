@@ -20,7 +20,13 @@ Future<void> main() async {
 
     runApp(
       ProviderScope(
-        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        overrides: [
+          appDatabaseProvider.overrideWithValue(database),
+          // The automatic snapshots are sealed with the very key that protects
+          // the database, so they are exactly as readable — and as lost —
+          // as it is.
+          databaseKeyProvider.overrideWithValue(decodeHexKey(key)),
+        ],
         child: const WerewolfNarratorApp(),
       ),
     );

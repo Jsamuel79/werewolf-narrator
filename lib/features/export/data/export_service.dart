@@ -127,6 +127,9 @@ class ExportService {
   /// Every id is regenerated — including the returned game's — so the same file
   /// can be imported twice, and an import never overwrites a game already on
   /// the device.
+  /// Stays `async` so a wrong password arrives through the returned future,
+  /// like every other failure of this class, instead of being thrown at the
+  /// call site before the future even exists.
   Future<Game> importGame({
     required String envelopeJson,
     required String password,
@@ -135,10 +138,13 @@ class ExportService {
       envelopeJson: envelopeJson,
       password: password,
     );
+    return restoreArchive(parseArchive(plaintext));
+  }
 
-    final GameArchive archive;
+  /// Reads a decrypted archive, whatever unsealed it.
+  GameArchive parseArchive(String plaintext) {
     try {
-      archive = GameArchive.fromJson(
+      return GameArchive.fromJson(
         jsonDecode(plaintext) as Map<String, dynamic>,
       );
     } on Object catch (error) {
@@ -147,7 +153,13 @@ class ExportService {
         cause: error,
       );
     }
+  }
 
+  /// Writes [archive] back as a brand new game, under fresh identifiers.
+  ///
+  /// Shared by the password-protected import and by the restore of an
+  /// automatic snapshot: only the way the bytes were unsealed differs.
+  Future<Game> restoreArchive(GameArchive archive) async {
     final newGameId = _uuid.v4();
     final playerIds = {
       for (final player in archive.players) player.id: _uuid.v4(),

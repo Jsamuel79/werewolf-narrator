@@ -21,18 +21,26 @@ class DriftNightsRepository implements NightsRepository {
     required Uuid uuid,
     DateTime Function()? clock,
     VictoryRecorder? victoryRecorder,
+    Future<void> Function(String gameId)? onRoundResolved,
   }) : _db = database,
        // ignore: prefer_initializing_formals
        _uuid = uuid,
        _now = clock ?? DateTime.now,
        _victory =
            victoryRecorder ??
-           VictoryRecorder(database: database, clock: clock);
+           VictoryRecorder(database: database, clock: clock),
+       // ignore: prefer_initializing_formals
+       _onRoundResolved = onRoundResolved;
 
   final AppDatabase _db;
   final Uuid _uuid;
   final DateTime Function() _now;
   final VictoryRecorder _victory;
+
+  /// Called once a half-round has been written and the game re-evaluated —
+  /// where the automatic snapshot is taken. A failure here must never undo a
+  /// round, so the caller is expected to swallow its own errors.
+  final Future<void> Function(String gameId)? _onRoundResolved;
 
   @override
   Stream<List<Night>> watchNights(String gameId) {
@@ -362,6 +370,7 @@ class DriftNightsRepository implements NightsRepository {
     });
 
     await _victory.refresh(row.gameId);
+    await _onRoundResolved?.call(row.gameId);
 
     return outcome;
   }

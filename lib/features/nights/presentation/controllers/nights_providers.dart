@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/core_providers.dart';
+import '../../../export/presentation/controllers/export_providers.dart';
 import '../../../games/presentation/controllers/games_providers.dart';
 import '../../data/nights_repository_impl.dart';
 import '../../domain/night_entities.dart';
@@ -10,10 +11,22 @@ typedef NightRef = ({String gameId, String nightId});
 
 final Provider<NightsRepository> nightsRepositoryProvider =
     Provider<NightsRepository>((ref) {
+      final backups = ref.watch(autoBackupServiceProvider);
       return DriftNightsRepository(
         database: ref.watch(appDatabaseProvider),
         uuid: ref.watch(uuidProvider),
         clock: ref.watch(clockProvider),
+        onRoundResolved: backups == null
+            ? null
+            : (gameId) async {
+                // A snapshot that fails to write must never cost the narrator
+                // the round they just played.
+                try {
+                  await backups.backup(gameId);
+                } on Object {
+                  // Nothing to do: the database itself is the source of truth.
+                }
+              },
       );
     });
 

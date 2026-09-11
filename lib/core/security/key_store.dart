@@ -1,8 +1,30 @@
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../errors/app_exception.dart';
+
+/// Turns the hex key handed out by [DatabaseKeyStore] into the raw bytes the
+/// ciphers want.
+///
+/// SQLCipher takes the key as hex in a `PRAGMA`, but AES-GCM — used for the
+/// automatic snapshots — takes bytes; this is the one place that converts
+/// between the two.
+Uint8List decodeHexKey(String hexKey) {
+  if (hexKey.length.isOdd) {
+    throw const KeyStoreException('La clé de chiffrement est invalide.');
+  }
+  final bytes = Uint8List(hexKey.length ~/ 2);
+  for (var i = 0; i < bytes.length; i++) {
+    final byte = int.tryParse(hexKey.substring(i * 2, i * 2 + 2), radix: 16);
+    if (byte == null) {
+      throw const KeyStoreException('La clé de chiffrement est invalide.');
+    }
+    bytes[i] = byte;
+  }
+  return bytes;
+}
 
 /// Provides the 256-bit key used to encrypt the local SQLCipher database.
 ///

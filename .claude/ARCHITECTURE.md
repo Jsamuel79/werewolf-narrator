@@ -138,9 +138,12 @@ lib/
     │
     └── export/
         ├── domain/game_archive.dart         # DTO sérialisable d'une partie complète
-        ├── data/export_service.dart         # archive → chiffrement → fichier ; et retour
+        ├── data/
+        │   ├── export_service.dart          # archive → chiffrement → fichier ; et retour
+        │   └── auto_backup_service.dart     # instantanés chiffrés par la clé de l'appareil
         └── presentation/
             ├── export_actions.dart          # parcours export / import
+            ├── backups_screen.dart          # instantanés de secours
             ├── password_dialog.dart
             └── controllers/export_providers.dart
 ```
@@ -193,7 +196,7 @@ garde les promesses de sécurité (pas de permission réseau, pas de socket).
 
 ### `nights`
 Un enregistrement `nights` représente **un tour complet** : la phase de nuit *et* le
-vote du village qui la suit. Choix documenté en §15 (décision D2).
+vote du village qui la suit. Choix documenté en §16 (décision D2).
 
 | Colonne | Type | Notes |
 |---------|------|-------|
@@ -600,7 +603,41 @@ que le narrateur ne les applique pas une seconde fois à la main.
 
 ---
 
-## 14. Flux de données
+## 14. Sauvegarde automatique chiffrée *(v2.1)*
+
+Après **chaque moitié de tour** résolue (la nuit, puis la journée), l'application écrit un
+instantané chiffré de la partie. Le narrateur ne demande rien et ne saisit aucun mot de
+passe.
+
+```
+resolveNight / resolveDay
+      └─► VictoryRecorder.refresh()
+             └─► onRoundResolved(gameId)  ──►  AutoBackupService.backup(gameId)
+                                                   ├─ ExportService.buildArchive()
+                                                   ├─ CryptoService.encryptWithKey()
+                                                   └─ <appSupport>/backups/<gameId>.wnb
+```
+
+- **Clé** : celle de la base, lue dans le Keystore au démarrage et injectée par
+  `databaseKeyProvider`. L'instantané est donc exactement aussi illisible hors de
+  l'appareil que la base elle-même — et aussi définitivement perdu si le Keystore est
+  effacé. L'enveloppe déclare `kdf: device-key` : `decrypt()` (par mot de passe) et
+  `decryptWithKey()` refusent chacune l'enveloppe de l'autre, avec un message qui dit quoi
+  faire.
+- **Un fichier par partie**, réécrit à chaque tour : le but est de revenir à l'état d'il y
+  a un instant, pas de tenir un historique — la partie garde déjà le sien en base.
+  L'écriture passe par un fichier temporaire renommé, pour qu'un crash en cours d'écriture
+  laisse l'instantané précédent intact.
+- **Jamais bloquant** : une sauvegarde qui échoue (disque plein) est avalée par le
+  provider ; elle ne doit pas coûter au narrateur le tour qu'il vient de jouer.
+- **Restauration** : l'écran « Instantanés de secours » (accueil → icône ↺) liste les
+  instantanés et en restaure un **en créant une nouvelle partie**, exactement comme
+  l'import. La partie en cours n'est jamais écrasée.
+- **Zéro réseau** : tout reste dans le répertoire privé de l'application.
+
+---
+
+## 15. Flux de données
 
 ```
 Widget ──watch──► StreamProvider/AsyncNotifier (Riverpod)
@@ -627,7 +664,7 @@ WidgetsFlutterBinding.ensureInitialized()
 
 ---
 
-## 15. Décisions d'architecture
+## 16. Décisions d'architecture
 
 | # | Décision | Raison |
 |---|----------|--------|
@@ -659,6 +696,9 @@ WidgetsFlutterBinding.ensureInitialized()
 | **D26** | Le Salvateur ne peut pas protéger le même joueur deux nuits de suite | La règle officielle existe, le catalogue la décrit déjà, et l'information nécessaire (la protection de la nuit précédente) est une requête d'une ligne. La contrainte est appliquée par filtrage des cibles, avec la raison affichée sur la carte. |
 | **D27** | La journée est une **phase résolue séparément**, pas des actions glissées dans la nuit | Le réveil doit annoncer des morts déjà appliqués au plateau, et le vote doit se compter sur les vivants du matin. Un `DayResolver` séparé aurait dupliqué `NightResolver` : les conséquences (protections, chagrin, capitaine, changements de rôle) sont les mêmes. Le même moteur est donc appelé deux fois, filtré par `phase` — une seule description des règles, deux moments d'application. |
 | **D28** | Le chronomètre et le retour sonore n'utilisent **aucun paquet** | `Timer.periodic`, `HapticFeedback.vibrate()` et `SystemSound.play()` viennent du SDK. Aucun paquet audio, donc aucune permission ajoutée au manifeste et la garantie « zéro réseau » reste vraie sans nouvel audit. |
+| **D36** | L'instantané automatique est scellé avec la **clé de la base**, pas avec un mot de passe | Une sauvegarde qui réclame un mot de passe n'est pas automatique. La clé du Keystore donne exactement la bonne propriété : l'instantané vaut la base — illisible ailleurs, perdu avec elle. L'export par mot de passe reste le seul moyen de sortir une partie de l'appareil, et les deux enveloppes se refusent mutuellement pour qu'on ne confonde jamais les deux usages. |
+| **D37** | **Un instantané par partie**, écrasé à chaque tour | Un historique d'instantanés grandirait sans fin sur un téléphone, alors que l'historique du jeu est déjà en base. Ce qu'on veut récupérer, c'est l'état d'il y a un tour, pas celui d'il y a trois parties. |
+| **D38** | La restauration **crée une partie de plus** au lieu d'écraser | Comme l'import : une restauration par erreur ne coûte alors qu'un doublon, jamais la partie en cours. |
 | **D35** | Les rappels de pouvoirs passifs sont des **textes contextuels**, pas des règles automatisées | L'Ancien qui encaisse la première attaque et le Chevalier qui contamine son voisin dépendent de l'ordre des sièges et de l'historique des attaques — des informations que l'app ne modélise pas. Les automatiser à moitié serait pire que de ne pas les automatiser : le narrateur ne saurait plus ce qui est appliqué. Les rappels sont donc stateless, et ceux qui portent sur une règle réellement appliquée le disent explicitement. |
 | **D31** | Le **Juge bègue** déclenche un **second vote complet**, et les deux éliminations comptent | Règle officielle (extension *Personnages*) : « il peut décider qu'un second vote aura lieu immédiatement après le premier, dans la même journée ». Le second vote est une carte de vote identique, enregistrée sous `villageSecondVote` pour que l'historique distingue les deux, et c'est **lui** qui désigne le joueur dont la Servante peut reprendre la carte. |
 | **D32** | La **Servante dévouée** ne reprend que la carte d'un joueur **éliminé par le vote du village**, pas d'une victime de la nuit | C'est la formulation du livret : « juste avant que le joueur éliminé par le village ne dévoile sa carte ». Certaines variantes de table l'étendent aux victimes des loups ; l'app suit la règle imprimée, et le narrateur qui joue la variante peut toujours changer le rôle à la main depuis l'écran de partie. |
@@ -669,7 +709,7 @@ WidgetsFlutterBinding.ensureInitialized()
 
 ---
 
-## 16. Sécurité
+## 17. Sécurité
 
 - 🔒 **DB chiffrée** SQLCipher AES-256 ; le fichier `.db` est illisible hors de l'app.
 - 🔑 **Clé** : 32 octets de `Random.secure()`, générés au premier lancement, stockés
@@ -679,11 +719,15 @@ WidgetsFlutterBinding.ensureInitialized()
   analytics Flutter désactivées.
 - 📦 **Export** : AES-256-GCM, clé PBKDF2 (150k itérations, sel 16 o), nonce 12 o
   aléatoire, tag d'authentification vérifié à l'import. Jamais d'export en clair.
+- 💾 **Instantanés automatiques** : AES-256-GCM sous la **clé de la base** (aucun mot de
+  passe, aucune saisie), dans le répertoire privé de l'application. Le tag GCM couvre
+  l'en-tête, donc un fichier modifié est rejeté ; un fichier venu d'une autre installation
+  est simplement ignoré à l'affichage.
 - 🙈 **Logs** : aucun `print`/`debugPrint` de clé, de mot de passe ou de contenu déchiffré.
 
 ---
 
-## 17. Roadmap
+## 18. Roadmap
 
 - [x] **E0 — Setup** : SDK Flutter, scaffold du projet, dépendances, lints
 - [x] **E1 — Noyau sécurité & DB** : `KeyStore`, ouverture SQLCipher, tables Drift

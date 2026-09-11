@@ -25,6 +25,10 @@ class CryptoService {
   static const int formatVersion = 1;
   static const int defaultIterations = 150000;
   static const String kdfAlgorithm = 'PBKDF2-HMAC-SHA256';
+
+  /// Marks an envelope sealed with the device key itself, with nothing to
+  /// stretch: the automatic snapshots never involve a password.
+  static const String deviceKeyAlgorithm = 'device-key';
   static const String cipherAlgorithm = 'AES-256-GCM';
   static const int saltLength = 16;
 
@@ -87,6 +91,93 @@ class CryptoService {
     }
   }
 
+  /// Encrypts [plaintext] under a key the app already holds — the database key
+  /// from the platform keystore.
+  ///
+  /// Used for the automatic snapshots, which must be written without asking
+  /// the narrator for anything. There is no password to stretch, so the
+  /// envelope declares [deviceKeyAlgorithm] and carries no salt: it can only
+  /// be opened on this device, by this install.
+  String encryptWithKey({
+    required String plaintext,
+    required Uint8List key,
+  }) {
+    if (key.length != keyLength) {
+      throw const ExportException('La clé de chiffrement est invalide.');
+    }
+    try {
+      final nonce = _randomBytes(nonceLength);
+      final encrypter = Encrypter(AES(Key(key), mode: AESMode.gcm));
+      final encrypted = encrypter.encryptBytes(
+        utf8.encode(plaintext),
+        iv: IV(nonce),
+        associatedData: _associatedData(
+          version: formatVersion,
+          kdfAlgorithm: deviceKeyAlgorithm,
+          iterations: 0,
+          salt: '',
+          cipherAlgorithm: cipherAlgorithm,
+          nonce: base64Encode(nonce),
+        ),
+      );
+
+      return jsonEncode({
+        'format': formatMarker,
+        'version': formatVersion,
+        'kdf': {'algorithm': deviceKeyAlgorithm, 'iterations': 0, 'salt': ''},
+        'cipher': {'algorithm': cipherAlgorithm, 'nonce': base64Encode(nonce)},
+        'payload': encrypted.base64,
+      });
+    } on AppException {
+      rethrow;
+    } on Object catch (error) {
+      throw ExportException(
+        'Le chiffrement de la sauvegarde a échoué.',
+        cause: error,
+      );
+    }
+  }
+
+  /// Reverses [encryptWithKey].
+  String decryptWithKey({
+    required String envelopeJson,
+    required Uint8List key,
+  }) {
+    final envelope = _readEnvelope(envelopeJson);
+    final kdf = envelope['kdf'] as Map<String, dynamic>?;
+    if (kdf == null || kdf['algorithm'] != deviceKeyAlgorithm) {
+      throw const ImportException(
+        'Cette sauvegarde attend un mot de passe : ouvrez-la par l\'import.',
+      );
+    }
+
+    try {
+      final cipher = envelope['cipher'] as Map<String, dynamic>;
+      final nonce = cipher['nonce'] as String;
+      final encrypter = Encrypter(AES(Key(key), mode: AESMode.gcm));
+      final plain = encrypter.decryptBytes(
+        Encrypted.fromBase64(envelope['payload'] as String),
+        iv: IV(base64Decode(nonce)),
+        associatedData: _associatedData(
+          version: envelope['version'] as int,
+          kdfAlgorithm: deviceKeyAlgorithm,
+          iterations: 0,
+          salt: '',
+          cipherAlgorithm: cipher['algorithm'] as String,
+          nonce: nonce,
+        ),
+      );
+      return utf8.decode(plain);
+    } on AppException {
+      rethrow;
+    } on Object catch (error) {
+      throw ImportException(
+        'Cette sauvegarde est illisible sur cet appareil.',
+        cause: error,
+      );
+    }
+  }
+
   /// Reverses [encrypt]. Throws [ImportException] on a wrong password, a
   /// tampered payload or a file that is not one of ours.
   String decrypt({required String envelopeJson, required String password}) {
@@ -94,27 +185,13 @@ class CryptoService {
       throw const ValidationException('Le mot de passe est obligatoire.');
     }
 
-    final Map<String, dynamic> envelope;
-    try {
-      final decoded = jsonDecode(envelopeJson);
-      if (decoded is! Map<String, dynamic>) throw const FormatException();
-      envelope = decoded;
-    } on FormatException catch (error) {
-      throw ImportException(
-        "Ce fichier n'est pas un export Werewolf Narrator.",
-        cause: error,
-      );
-    }
-
-    if (envelope['format'] != formatMarker) {
+    final envelope = _readEnvelope(envelopeJson);
+    final kdfAlgorithmUsed =
+        (envelope['kdf'] as Map<String, dynamic>?)?['algorithm'];
+    if (kdfAlgorithmUsed == deviceKeyAlgorithm) {
       throw const ImportException(
-        "Ce fichier n'est pas un export Werewolf Narrator.",
-      );
-    }
-    if (envelope['version'] is! int ||
-        (envelope['version'] as int) > formatVersion) {
-      throw const ImportException(
-        'Cet export vient d\'une version plus récente de l\'application.',
+        'Cette sauvegarde automatique n\'a pas de mot de passe : '
+        'restaurez-la depuis les instantanés de secours.',
       );
     }
 
@@ -156,6 +233,35 @@ class CryptoService {
         cause: error,
       );
     }
+  }
+
+  /// Parses the envelope and checks it is one of ours, before any key is
+  /// derived — shared by both ways of opening a file.
+  Map<String, dynamic> _readEnvelope(String envelopeJson) {
+    final Map<String, dynamic> envelope;
+    try {
+      final decoded = jsonDecode(envelopeJson);
+      if (decoded is! Map<String, dynamic>) throw const FormatException();
+      envelope = decoded;
+    } on FormatException catch (error) {
+      throw ImportException(
+        "Ce fichier n'est pas un export Werewolf Narrator.",
+        cause: error,
+      );
+    }
+
+    if (envelope['format'] != formatMarker) {
+      throw const ImportException(
+        "Ce fichier n'est pas un export Werewolf Narrator.",
+      );
+    }
+    if (envelope['version'] is! int ||
+        (envelope['version'] as int) > formatVersion) {
+      throw const ImportException(
+        'Cet export vient d\'une version plus récente de l\'application.',
+      );
+    }
+    return envelope;
   }
 
   /// Canonical rendering of the header, fed to GCM as additional authenticated
